@@ -1,0 +1,10 @@
+{
+  "classes": [
+    "casino",
+    "fraud",
+    "pyramid",
+    "safe"
+  ],
+  "n_samples": 90,
+  "cv_f1_mean": 0.7023917748917748
+}

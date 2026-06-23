@@ -37,8 +37,14 @@ export async function savePost(post) {
   const {
     id, platform, username, caption, url, thumbnail, thumbnailColor, avatar,
     viewCount, likeCount, riskScore, category, schemeTypes, reason,
-    status = 'pending', keyword, requisites,
+    status: rawStatus, keyword, requisites,
   } = post;
+
+  // Auto-block high-risk content
+  const autoStatus = rawStatus ?? (
+    (riskScore ?? 0) >= 75 && (category ?? 'safe') !== 'safe' ? 'blocked' : 'pending'
+  );
+  const status = autoStatus;
 
   await pool.query(`
     INSERT INTO posts (
@@ -79,6 +85,10 @@ export async function getPostById(id) {
 
 export async function deletePost(id) {
   await pool.query('DELETE FROM posts WHERE id=$1', [id]);
+}
+
+export async function updatePostStatus(id, status) {
+  await pool.query('UPDATE posts SET status=$1 WHERE id=$2', [status, id]);
 }
 
 export async function getStats() {
