@@ -4,7 +4,7 @@
  */
 
 const DEFAULT_SETTINGS = {
-  backendUrl: 'http://localhost:3001',
+  backendUrl: 'https://lane-strengths-var-ccd.trycloudflare.com',
   enabled: true,
   blockThreshold: 0.65,
   timeLimitsEnabled: false,
