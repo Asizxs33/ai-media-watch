@@ -12,6 +12,7 @@
 import { Router } from 'express';
 import { searchYoutube, searchTiktok } from '../services/search.js';
 import { classifyContent } from '../services/classifier.js';
+import { savePost } from '../services/db.js';
 
 export const livescanRouter = Router();
 
@@ -61,11 +62,13 @@ async function runScan({ keywords, platforms, limit }, emit, getAborted) {
               platform: 'youtube', username: video.uploader, caption: video.title, scrapedText: text,
             });
             found++;
-            emit('result', {
+            const ytResult = {
               id: `yt-${video.id}`, url: video.url, platform: 'youtube',
               username: video.uploader, title: video.title, thumbnail: video.thumbnail,
               viewCount: video.viewCount, duration: video.duration, keyword, ...cls,
-            });
+            };
+            emit('result', ytResult);
+            savePost({ ...ytResult, caption: video.title }).catch(() => {});
           } catch (clsErr) {
             emit('error', { id: `yt-${video.id}`, message: clsErr.message });
           }
@@ -97,11 +100,13 @@ async function runScan({ keywords, platforms, limit }, emit, getAborted) {
               platform: 'tiktok', username: video.uploader, caption: video.description, scrapedText: text,
             });
             found++;
-            emit('result', {
+            const ttResult = {
               id: `tt-${video.id}`, url: video.url, platform: 'tiktok',
               username: video.uploader, title: video.title, thumbnail: video.thumbnail,
               viewCount: video.viewCount, keyword, ...cls,
-            });
+            };
+            emit('result', ttResult);
+            savePost({ ...ttResult, caption: video.description || video.title }).catch(() => {});
           } catch (clsErr) {
             emit('error', { id: `tt-${video.id}`, message: clsErr.message });
           }

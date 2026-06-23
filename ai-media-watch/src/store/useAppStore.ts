@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Post, Category, Platform, PostStatus, RequisiteType } from '../types';
+import { BACKEND } from '../config';
 
 export interface RegistryEntry {
   type: RequisiteType;
@@ -45,6 +46,7 @@ interface AppState {
   requisitesRegistry: () => RegistryEntry[];
   pushAnalyst: (text: string, tone: AnalystTone, postId?: string) => void;
   clearAnalyst: () => void;
+  loadPostsFromDb: () => Promise<void>;
 }
 
 const defaultFilters: Filters = {
@@ -229,6 +231,49 @@ export const useAppStore = create<AppState>()(
         })),
 
       clearAnalyst: () => set({ analyst: [] }),
+
+      loadPostsFromDb: async () => {
+        try {
+          const res = await fetch(`${BACKEND}/api/posts?limit=200`);
+          if (!res.ok) return;
+          const { posts: dbPosts } = await res.json();
+          if (!Array.isArray(dbPosts) || dbPosts.length === 0) return;
+
+          const converted: Post[] = dbPosts.map((r: any) => ({
+            id: r.id,
+            platform: r.platform ?? 'youtube',
+            username: r.username ?? '',
+            avatar: r.avatar ?? `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(r.username ?? r.id)}`,
+            caption: r.caption ?? '',
+            hashtags: [],
+            thumbnailColor: r.thumbnailColor ?? '#1c1f29',
+            videoTranscript: '',
+            ocrText: '',
+            riskScore: typeof r.riskScore === 'number' ? r.riskScore : parseFloat(r.riskScore ?? '0'),
+            category: r.category ?? 'safe',
+            detectedMarkers: Array.isArray(r.schemeTypes) ? r.schemeTypes : [],
+            timestamp: r.timestamp ? new Date(r.timestamp).toISOString() : new Date().toISOString(),
+            status: r.status ?? 'pending',
+            views: r.viewCount ?? r.views ?? 0,
+            likes: r.likeCount ?? r.likes ?? 0,
+            url: r.url ?? '',
+            requisites: Array.isArray(r.requisites) ? r.requisites : [],
+          }));
+
+          set((s) => {
+            const existingIds = new Set(s.posts.map((p) => p.id));
+            const newOnes = converted.filter((p) => !existingIds.has(p.id));
+            // Also update risk scores for existing DB posts
+            const updated = s.posts.map((p) => {
+              const dbVersion = converted.find((d) => d.id === p.id);
+              return dbVersion ? { ...p, ...dbVersion } : p;
+            });
+            return { posts: [...newOnes, ...updated] };
+          });
+        } catch {
+          // silently fail — backend may be offline
+        }
+      },
 
       filteredPosts: () => {
         const { posts, filters } = get();

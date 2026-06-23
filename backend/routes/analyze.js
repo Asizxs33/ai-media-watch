@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { classifyContent, classifyImage } from '../services/classifier.js';
 import { scrapePageText, detectPlatform } from '../services/scraper.js';
 import { transcribeFromUrl } from '../services/transcriber.js';
+import { savePost } from '../services/db.js';
 
 export const analyzeRouter = Router();
 
@@ -111,6 +112,15 @@ analyzeRouter.post('/url', async (req, res) => {
       scrapedText: scraped.text,
       transcript,
     });
+
+    // Save to DB (fire and forget)
+    savePost({
+      id: `url-${Date.now()}`,
+      platform: scraped.platform,
+      url,
+      caption: scraped.text.slice(0, 500),
+      ...result,
+    }).catch(() => {});
 
     return res.json({
       success: true,

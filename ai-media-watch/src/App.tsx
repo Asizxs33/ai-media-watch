@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Landing from './pages/Landing';
 import Scanner from './pages/Scanner';
@@ -9,8 +10,15 @@ import Stats from './pages/Stats';
 import Registry from './pages/Registry';
 import CommandCenter from './pages/CommandCenter';
 import { AnalystDock } from './components/AnalystDock';
+import { useAppStore } from './store/useAppStore';
 
 export default function App() {
+  const loadPostsFromDb = useAppStore((s) => s.loadPostsFromDb);
+
+  useEffect(() => {
+    loadPostsFromDb();
+  }, []);
+
   return (
     <BrowserRouter>
       <AnalystDock />
