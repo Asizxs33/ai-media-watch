@@ -13,7 +13,10 @@ const TMP_DIR = join(__dirname, '../tmp');
 
 if (!existsSync(TMP_DIR)) mkdirSync(TMP_DIR, { recursive: true });
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+let openai = null;
+if (process.env.OPENAI_API_KEY) {
+  openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+}
 
 /**
  * Downloads video from URL using yt-dlp and transcribes audio with Whisper.
@@ -21,6 +24,10 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
  * Returns null if yt-dlp is not available (falls back to text-only analysis).
  */
 export async function transcribeFromUrl(url) {
+  if (!openai) {
+    console.log('[transcriber] Whisper disabled (no API key)');
+    return null;
+  }
   // Check if yt-dlp is available
   try {
     await execFileAsync('yt-dlp', ['--version']);

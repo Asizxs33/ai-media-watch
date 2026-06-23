@@ -3,7 +3,10 @@ import { spawnSync } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-const claude = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+let claude = null;
+if (process.env.ANTHROPIC_API_KEY) {
+  claude = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ML_DIR = path.resolve(__dirname, '../../ml');
@@ -74,6 +77,32 @@ export async function classifyContent(input) {
 
   // ── Step 1: ML fast pre-classification ──────────────────────────────────
   const mlResult = runPythonScript(PREDICT_SCRIPT, { text: fullText, username });
+
+  if (!claude) {
+    console.warn('[classifier] Claude API key not set, using ML model classification');
+    if (mlResult) {
+      return {
+        category: mlResult.category,
+        riskScore: mlResult.riskScore,
+        confidence: Math.round(mlResult.confidence * 100),
+        detectedMarkers: [],
+        explanation: 'Контент классифицирован с использованием локальной ML-модели.',
+        legalReference: '',
+        requisites: [],
+        analysisSource: 'ml_only',
+      };
+    }
+    return {
+      category: 'safe',
+      riskScore: 0,
+      confidence: 100,
+      detectedMarkers: [],
+      explanation: 'Claude API не настроен, по умолчанию контент считается безопасным.',
+      legalReference: '',
+      requisites: [],
+      analysisSource: 'none',
+    };
+  }
 
   // If ML is very confident the post is SAFE → skip Claude entirely
   if (mlResult && mlResult.confidence >= ML_SKIP_CLAUDE_THRESHOLD && mlResult.category === 'safe') {
@@ -185,6 +214,21 @@ function parseJsonResponse(raw) {
  * @returns {Promise<ClassificationResult & { ocrText: string }>}
  */
 export async function classifyImage({ imageBase64, mediaType = 'image/png' }) {
+  if (!claude) {
+    console.warn('[classifier] Claude API key not set, skipping image analysis');
+    return {
+      ocrText: '',
+      category: 'safe',
+      riskScore: 0,
+      confidence: 100,
+      detectedMarkers: [],
+      explanation: 'Claude API не настроен, оптическое распознавание недоступно.',
+      legalReference: '',
+      requisites: [],
+      analysisSource: 'none',
+    };
+  }
+
   const userPrompt = `На изображении — скриншот из социальной сети (пост, сторис, чат, реклама или комментарий).
 
 1. ПРОЧИТАЙ весь видимый текст на изображении (OCR), включая текст на кнопках, в подписях и водяных знаках.
