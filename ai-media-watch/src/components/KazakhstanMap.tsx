@@ -1,193 +1,79 @@
 import { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 
-// Vertex coordinates for perfect topological alignment (no gaps, no overlaps)
-const V: Record<string, number[]> = {
-  wko_top_left: [15, 168],
-  wko_top_mid: [52, 140],
-  wko_top_right: [132, 115],
-  wko_mid_right: [162, 208],
-  wko_bot_right: [140, 310],
-  wko_bot_mid: [68, 338],
-  wko_bot_left: [15, 298],
+/* ─── Real geographic SVG paths for Kazakhstan (viewBox 0 0 800 480) ─── */
 
-  atyrau_mid_right: [162, 345],
-  atyrau_mid_right_2: [138, 435],
-  atyrau_bot_right: [108, 452],
-  atyrau_bot_mid: [96, 462],
-  atyrau_bot_left: [38, 476],
-  atyrau_mid_left: [12, 420],
+const PATH_ALMATY = `M 573.9,339.2 L 573.9,338.2 L 569.9,338.2 L 571.3,336.8 L 565.7,335.2 L 565.2,333.8 L 564.5,333.6 L 564.2,330.8 L 566.8,328.5 L 566.1,327.6 L 563.2,327.9 L 563.5,327.2 L 561.7,327.4 L 558.4,326.6 L 558.4,325.3 L 563.4,322.1 L 563.9,321.2 L 563.4,319.8 L 564.7,318.2 L 564.7,315.8 L 558.4,312.3 L 553.7,312.0 L 550.0,309.4 L 549.3,308.7 L 550.2,306.3 L 548.4,304.0 L 542.1,300.9 L 540.9,299.4 L 540.8,297.0 L 535.3,296.9 L 534.9,293.2 L 540.8,293.5 L 539.8,291.6 L 538.9,284.3 L 544.1,277.8 L 555.8,269.7 L 567.0,265.3 L 571.7,265.9 L 577.7,265.2 L 584.3,266.0 L 584.3,266.5 L 585.4,266.7 L 586.8,265.7 L 587.3,266.8 L 587.9,266.3 L 589.7,266.7 L 590.3,265.7 L 596.4,267.1 L 594.3,265.7 L 595.6,265.5 L 597.7,266.2 L 599.6,266.0 L 601.6,266.8 L 602.2,267.9 L 603.7,267.7 L 603.7,266.5 L 609.6,266.0 L 608.8,255.9 L 609.3,255.2 L 614.4,256.0 L 617.2,253.8 L 619.7,255.6 L 622.9,252.9 L 629.5,256.6 L 632.0,256.7 L 632.9,258.4 L 641.6,257.7 L 647.8,263.6 L 657.1,261.4 L 661.3,262.6 L 661.2,264.0 L 673.6,268.2 L 679.7,268.3 L 680.8,269.5 L 682.8,268.9 L 684.0,270.4 L 685.5,269.6 L 684.7,270.4 L 686.8,270.9 L 687.9,270.0 L 686.5,271.2 L 687.6,271.3 L 686.9,272.0 L 693.4,277.2 L 695.0,281.3 L 698.1,283.7 L 697.8,287.8 L 698.5,288.2 L 700.5,287.7 L 703.3,289.2 L 706.7,289.7 L 707.4,291.1 L 706.7,293.9 L 704.6,296.1 L 700.1,293.8 L 694.3,295.4 L 693.1,294.3 L 691.6,294.4 L 691.0,292.4 L 689.1,291.3 L 685.1,293.0 L 683.7,292.8 L 678.8,294.3 L 677.7,294.1 L 677.1,295.0 L 674.6,295.2 L 673.5,295.9 L 670.3,295.0 L 667.9,296.3 L 665.2,296.1 L 663.5,297.6 L 662.1,297.1 L 660.3,297.8 L 657.6,297.5 L 657.7,298.2 L 653.0,300.4 L 655.3,300.8 L 656.6,302.3 L 661.5,301.6 L 665.5,303.7 L 665.6,304.2 L 663.1,305.1 L 663.9,306.1 L 662.7,308.6 L 664.2,315.4 L 666.2,321.2 L 670.6,328.6 L 669.0,331.6 L 670.9,331.8 L 671.7,334.0 L 671.2,334.6 L 667.6,335.0 L 663.6,336.8 L 663.9,337.8 L 667.5,339.7 L 663.8,340.9 L 661.1,340.9 L 659.3,344.6 L 660.1,346.4 L 661.5,347.0 L 660.2,348.1 L 660.5,350.2 L 661.4,350.7 L 661.7,351.8 L 660.8,352.8 L 658.4,353.1 L 657.7,350.7 L 655.7,349.7 L 654.9,348.6 L 653.3,348.9 L 649.5,347.8 L 646.5,348.2 L 643.5,345.6 L 640.8,344.3 L 640.0,343.2 L 640.0,341.8 L 637.9,342.6 L 637.0,341.9 L 630.3,341.0 L 626.7,339.5 L 623.4,340.4 L 620.6,339.9 L 618.1,340.7 L 612.8,339.3 L 606.2,338.8 L 602.3,339.2 L 600.8,338.3 L 594.7,337.8 L 592.0,339.4 L 587.9,339.1 L 587.2,339.8 L 584.5,340.2 L 583.1,339.1 L 578.5,339.3 L 576.4,338.4 L 573.9,339.2 Z`;
 
-  mangystau_mid_right: [138, 495],
-  mangystau_bot_right: [124, 550],
-  mangystau_bot_left: [58, 556],
-  mangystau_mid_left: [22, 522],
+const PATH_ASTANA = `M 423.3,190.8 L 421.0,191.9 L 412.5,192.6 L 407.9,194.5 L 405.1,191.8 L 407.3,190.9 L 406.0,188.9 L 404.3,188.5 L 399.5,189.4 L 392.7,187.5 L 390.3,187.9 L 389.2,185.3 L 386.1,185.7 L 386.2,185.0 L 385.5,185.4 L 385.3,183.8 L 381.7,182.4 L 380.4,185.0 L 376.5,185.2 L 375.8,184.2 L 377.1,180.4 L 372.9,177.8 L 374.0,177.2 L 372.3,175.8 L 375.1,174.3 L 374.2,173.8 L 375.9,170.8 L 374.1,168.5 L 371.6,168.4 L 370.6,166.3 L 374.0,166.5 L 379.2,164.9 L 380.9,159.6 L 383.3,158.4 L 383.4,153.7 L 386.6,153.8 L 388.2,156.0 L 394.9,154.8 L 395.0,156.7 L 401.3,156.7 L 405.4,157.6 L 406.7,157.1 L 410.8,158.0 L 410.6,153.9 L 414.9,153.8 L 421.5,156.7 L 422.6,156.0 L 422.1,155.6 L 422.7,155.0 L 423.5,155.3 L 425.9,153.7 L 424.5,152.8 L 424.1,151.5 L 426.9,151.5 L 428.5,150.2 L 430.7,150.4 L 432.1,148.2 L 438.4,146.0 L 436.7,144.9 L 437.8,145.0 L 436.9,143.0 L 439.9,141.4 L 438.8,140.4 L 439.5,140.3 L 439.5,139.4 L 439.2,138.8 L 437.8,138.7 L 438.1,137.3 L 435.9,137.2 L 434.2,136.2 L 432.7,134.3 L 435.7,132.7 L 436.2,133.0 L 436.8,132.3 L 435.9,132.3 L 435.8,131.3 L 438.7,131.4 L 439.1,131.1 L 438.1,129.8 L 439.6,129.9 L 439.8,129.4 L 441.7,129.5 L 441.8,130.1 L 444.6,129.9 L 444.5,128.9 L 446.5,129.0 L 446.5,129.9 L 448.8,130.6 L 449.2,132.2 L 450.6,132.4 L 451.2,131.6 L 450.1,131.4 L 449.8,130.5 L 450.6,130.5 L 451.0,129.5 L 452.0,129.6 L 454.2,128.6 L 458.4,128.6 L 458.6,129.5 L 459.7,129.7 L 459.9,131.7 L 459.5,132.4 L 464.4,132.2 L 464.6,133.3 L 462.6,135.0 L 467.4,134.7 L 469.8,137.5 L 471.7,137.3 L 471.4,135.9 L 473.1,135.7 L 473.6,134.1 L 481.9,133.9 L 481.8,135.7 L 485.2,136.4 L 486.9,136.4 L 489.8,135.4 L 490.5,134.6 L 492.5,134.6 L 492.4,135.4 L 496.4,138.0 L 495.0,140.1 L 495.6,141.1 L 494.4,141.5 L 495.6,143.6 L 506.0,143.8 L 506.9,142.3 L 510.7,141.8 L 511.5,142.3 L 516.7,141.2 L 517.2,143.2 L 518.0,143.8 L 518.5,147.3 L 521.0,146.7 L 524.8,147.8 L 527.4,147.8 L 527.7,148.6 L 529.2,148.5 L 530.5,150.2 L 539.2,150.9 L 540.1,163.8 L 535.5,165.8 L 535.4,169.4 L 539.0,168.3 L 540.0,169.8 L 544.2,170.6 L 541.9,171.7 L 539.9,171.4 L 535.6,173.2 L 535.3,174.6 L 533.2,176.1 L 529.8,175.5 L 528.5,176.7 L 528.0,175.7 L 526.2,176.4 L 525.6,175.9 L 524.7,176.1 L 524.3,177.1 L 525.2,177.4 L 526.2,179.5 L 526.9,179.8 L 528.0,178.3 L 531.5,179.2 L 528.6,180.9 L 523.4,182.0 L 524.1,183.0 L 521.3,183.5 L 520.5,184.3 L 517.4,183.5 L 515.4,184.9 L 515.8,185.6 L 514.5,186.6 L 511.7,186.7 L 511.6,187.4 L 509.8,187.7 L 510.4,188.2 L 509.0,189.0 L 511.1,189.9 L 509.5,190.4 L 507.2,189.5 L 505.0,190.6 L 505.4,192.5 L 504.1,192.7 L 504.4,193.3 L 501.9,192.1 L 496.1,192.8 L 497.9,191.1 L 497.6,190.2 L 498.2,189.7 L 497.4,189.0 L 498.7,187.9 L 496.5,186.6 L 495.1,186.7 L 494.8,186.0 L 493.5,186.3 L 493.2,185.7 L 492.3,185.8 L 492.4,186.3 L 489.4,187.1 L 488.9,189.0 L 487.5,189.0 L 486.8,189.8 L 485.1,189.6 L 483.6,190.4 L 484.0,191.1 L 478.4,192.7 L 478.1,196.8 L 476.7,195.2 L 472.5,196.4 L 473.7,198.4 L 473.1,199.2 L 466.5,201.0 L 465.3,200.6 L 465.4,199.2 L 467.2,197.6 L 466.7,197.0 L 465.8,197.2 L 465.2,196.1 L 455.6,197.4 L 456.0,195.8 L 454.9,195.7 L 453.6,194.2 L 452.5,194.8 L 452.1,193.7 L 449.5,194.7 L 450.2,196.1 L 448.6,196.8 L 447.1,196.3 L 447.2,198.2 L 445.9,197.8 L 443.4,198.6 L 439.4,197.0 L 437.8,197.4 L 437.1,196.6 L 438.5,195.6 L 440.2,192.3 L 439.8,190.6 L 440.7,190.2 L 441.0,185.9 L 434.9,186.0 L 434.3,186.7 L 427.7,189.3 L 425.8,188.4 L 421.9,188.6 L 423.2,189.7 L 423.3,190.8 Z`;
 
-  aktobe_top_mid: [205, 60],
-  aktobe_top_right: [300, 68],
-  aktobe_mid_right: [322, 208],
-  aktobe_bot_right: [285, 345],
+const PATH_WEST = `M 200.7,295.2 L 197.9,280.6 L 194.5,275.0 L 194.9,274.2 L 192.6,272.1 L 192.3,269.6 L 176.9,266.1 L 171.0,262.0 L 169.8,258.8 L 166.8,256.2 L 169.1,245.1 L 167.8,243.6 L 167.4,239.9 L 164.3,237.6 L 165.0,235.8 L 163.2,231.9 L 163.8,228.8 L 164.4,228.5 L 164.3,225.3 L 160.8,225.1 L 160.8,224.3 L 159.3,223.6 L 158.7,224.3 L 157.4,224.1 L 157.0,227.0 L 149.0,226.1 L 149.8,224.8 L 148.9,223.5 L 149.5,222.4 L 148.1,217.9 L 147.1,217.7 L 146.2,219.2 L 141.4,216.6 L 141.2,214.8 L 142.5,211.9 L 141.8,210.9 L 143.0,211.3 L 143.8,210.0 L 145.3,209.1 L 147.2,209.1 L 147.6,208.1 L 151.7,208.3 L 153.6,207.6 L 153.2,207.0 L 154.9,205.2 L 157.1,205.2 L 156.0,204.3 L 158.6,200.4 L 158.4,199.5 L 156.1,198.4 L 156.4,195.3 L 154.9,194.0 L 157.0,192.6 L 156.7,192.1 L 159.1,190.2 L 158.8,189.9 L 159.7,190.1 L 162.0,188.4 L 160.6,184.8 L 161.6,183.2 L 163.9,183.4 L 164.9,184.3 L 168.3,182.5 L 169.3,183.0 L 168.5,184.4 L 169.2,185.0 L 174.3,187.8 L 176.8,187.6 L 180.9,189.6 L 181.7,188.8 L 189.5,185.8 L 189.5,184.3 L 190.6,182.5 L 193.8,182.9 L 194.6,181.7 L 196.1,181.6 L 195.9,179.9 L 196.6,179.4 L 199.3,181.3 L 201.2,181.7 L 201.6,181.0 L 201.1,179.6 L 206.9,180.1 L 210.0,179.3 L 212.1,180.8 L 213.3,182.5 L 216.4,183.5 L 216.6,182.7 L 218.2,182.2 L 220.6,182.6 L 221.2,178.6 L 222.4,178.4 L 226.0,179.5 L 227.7,178.7 L 228.0,179.6 L 229.5,179.8 L 230.2,178.5 L 231.7,178.0 L 233.2,179.6 L 237.0,179.9 L 237.8,180.9 L 237.0,182.3 L 237.7,184.5 L 241.2,184.4 L 241.4,185.6 L 243.7,187.0 L 251.0,188.0 L 254.9,187.8 L 256.1,188.9 L 255.6,189.3 L 255.9,190.6 L 261.8,189.3 L 265.1,184.5 L 266.4,183.8 L 268.6,184.2 L 268.9,185.2 L 271.3,187.1 L 274.4,187.6 L 281.3,187.8 L 293.0,185.2 L 293.7,184.4 L 296.1,176.3 L 299.0,176.4 L 301.3,175.0 L 302.7,176.3 L 303.9,179.6 L 305.4,180.0 L 307.0,178.9 L 309.9,180.0 L 308.6,182.2 L 312.1,184.4 L 309.9,185.4 L 310.3,187.7 L 313.0,187.1 L 314.8,192.9 L 322.5,201.7 L 321.5,203.8 L 318.4,202.2 L 315.3,204.0 L 315.0,206.1 L 311.9,207.3 L 313.2,210.2 L 310.9,209.6 L 309.2,211.0 L 313.8,215.8 L 309.8,216.1 L 309.3,217.1 L 311.9,216.9 L 313.3,220.1 L 318.7,223.6 L 323.0,222.1 L 325.0,223.3 L 325.1,224.1 L 323.8,225.2 L 324.6,226.9 L 331.0,228.3 L 338.5,231.4 L 346.3,241.0 L 348.1,241.6 L 343.7,244.8 L 319.1,256.1 L 318.3,255.2 L 312.7,254.6 L 313.5,253.3 L 308.1,248.6 L 305.7,248.9 L 300.7,243.4 L 288.8,245.3 L 282.1,257.5 L 273.9,257.0 L 273.3,261.3 L 267.3,261.6 L 259.4,266.6 L 245.9,279.2 L 246.6,292.2 L 237.1,287.3 L 200.7,295.2 Z`;
 
-  kostanay_top_mid: [378, 20],
-  kostanay_top_right: [435, 48],
-  kostanay_mid_right: [412, 162],
-  kostanay_bot_right: [348, 178],
+const PATH_EAST = `M 700.5,287.7 L 698.5,288.2 L 697.8,287.8 L 698.1,283.7 L 695.0,281.3 L 693.4,277.2 L 686.9,272.0 L 687.6,271.3 L 686.5,271.2 L 687.9,270.0 L 686.8,270.9 L 684.7,270.4 L 685.5,269.6 L 684.0,270.4 L 682.8,268.9 L 680.8,269.5 L 679.7,268.3 L 673.6,268.2 L 661.2,264.0 L 661.3,262.6 L 657.1,261.4 L 647.8,263.6 L 641.6,257.7 L 632.9,258.4 L 632.0,256.7 L 629.5,256.6 L 622.9,252.9 L 619.7,255.6 L 617.2,253.8 L 614.4,256.0 L 609.3,255.2 L 606.8,256.5 L 604.5,255.7 L 603.3,256.3 L 602.3,258.0 L 599.4,257.3 L 594.7,254.5 L 596.3,254.1 L 597.1,252.7 L 597.0,251.3 L 600.7,251.6 L 599.4,247.6 L 598.6,246.6 L 600.7,242.1 L 601.7,242.1 L 601.9,240.5 L 603.2,240.5 L 602.0,239.4 L 605.7,238.5 L 604.3,237.7 L 602.3,237.8 L 599.8,236.3 L 600.3,235.3 L 602.0,235.2 L 602.5,234.6 L 598.5,234.4 L 598.2,233.6 L 596.5,233.0 L 595.8,232.0 L 597.3,231.7 L 597.1,230.7 L 598.1,230.1 L 600.6,230.4 L 604.2,227.9 L 605.0,224.9 L 604.2,223.4 L 596.2,224.2 L 594.8,222.4 L 595.1,220.4 L 599.0,219.7 L 595.5,217.8 L 595.5,216.5 L 590.9,214.6 L 591.0,213.9 L 589.4,212.8 L 589.7,211.6 L 599.4,209.0 L 601.5,206.2 L 601.0,205.3 L 601.5,204.1 L 600.9,203.5 L 601.4,202.0 L 606.9,200.8 L 611.3,197.8 L 611.7,196.7 L 613.0,196.2 L 614.2,197.5 L 625.8,200.3 L 628.5,199.5 L 633.2,194.7 L 632.6,192.1 L 630.8,191.8 L 631.5,187.4 L 622.1,183.3 L 621.6,181.4 L 619.2,179.2 L 624.9,176.7 L 625.4,177.3 L 631.9,175.2 L 632.9,175.5 L 633.0,173.7 L 632.0,173.8 L 631.9,172.7 L 635.8,172.3 L 636.4,172.7 L 638.9,171.2 L 638.4,170.1 L 641.4,169.6 L 641.9,167.7 L 643.4,167.6 L 657.6,185.9 L 657.4,184.1 L 659.8,184.4 L 660.0,183.0 L 665.2,181.6 L 665.4,179.6 L 664.6,178.7 L 664.7,177.1 L 668.2,177.1 L 669.2,175.1 L 676.6,177.4 L 678.0,176.8 L 678.4,177.9 L 677.1,180.1 L 676.8,181.9 L 683.2,181.2 L 684.1,182.7 L 683.7,183.1 L 684.9,184.4 L 684.4,185.8 L 685.0,185.9 L 690.5,185.6 L 690.7,184.8 L 692.4,184.6 L 694.9,184.9 L 697.9,186.0 L 700.3,185.3 L 705.5,185.7 L 708.7,184.3 L 709.2,182.2 L 713.9,182.7 L 716.2,181.3 L 716.5,180.4 L 718.4,181.3 L 722.7,180.8 L 722.3,181.3 L 730.2,183.2 L 733.1,185.2 L 733.7,186.7 L 738.8,190.6 L 738.3,191.8 L 739.3,193.7 L 738.8,194.8 L 740.6,196.3 L 743.6,195.8 L 753.8,199.6 L 754.5,200.6 L 753.6,200.8 L 753.4,202.2 L 755.8,203.1 L 757.8,206.2 L 757.7,207.7 L 759.2,208.7 L 762.0,209.2 L 764.6,208.4 L 767.0,209.3 L 771.8,209.4 L 772.1,210.5 L 775.4,210.1 L 776.6,211.2 L 778.0,208.8 L 781.7,207.7 L 785.2,205.5 L 785.3,204.5 L 789.0,204.5 L 788.3,205.7 L 788.7,206.3 L 785.5,207.7 L 785.7,208.9 L 789.0,209.6 L 789.2,211.4 L 791.1,212.1 L 791.0,213.4 L 792.0,214.4 L 798.3,216.2 L 799.0,218.3 L 795.5,217.3 L 792.3,218.3 L 790.4,218.0 L 789.6,219.2 L 787.6,220.2 L 787.7,221.9 L 789.2,223.6 L 788.0,224.3 L 788.3,225.8 L 785.7,227.6 L 784.8,229.2 L 781.8,230.1 L 779.6,230.0 L 777.5,231.3 L 770.2,231.5 L 768.1,232.6 L 765.7,236.7 L 765.8,238.2 L 764.4,241.0 L 765.9,247.5 L 765.6,249.2 L 767.6,252.0 L 767.4,254.8 L 765.1,255.6 L 764.1,258.2 L 758.2,258.3 L 755.2,260.6 L 753.3,261.0 L 753.1,261.8 L 750.0,262.7 L 747.8,262.5 L 749.6,261.1 L 747.7,259.2 L 744.2,259.8 L 742.6,259.1 L 738.4,259.3 L 735.0,260.0 L 726.0,258.2 L 723.6,256.8 L 722.7,256.9 L 721.6,255.9 L 719.5,255.8 L 718.1,255.0 L 715.3,255.2 L 714.6,258.2 L 713.4,259.1 L 710.9,264.2 L 709.6,268.8 L 705.5,275.3 L 705.0,279.2 L 701.2,285.3 L 700.5,287.7 Z`;
 
-  nko_top_right: [562, 15],
-  nko_mid_right: [612, 40],
-  nko_bot_right: [588, 128],
-  nko_bot_left: [498, 142],
+const PATH_NORTH = `M 528.0,133.3 L 530.7,136.2 L 529.9,136.7 L 528.3,136.2 L 527.8,138.0 L 528.3,139.8 L 532.3,137.6 L 532.6,138.1 L 533.6,137.7 L 534.5,138.5 L 532.4,139.6 L 532.6,140.3 L 529.5,143.0 L 532.2,142.4 L 532.8,143.2 L 531.4,144.2 L 531.9,145.8 L 534.6,145.8 L 535.8,143.8 L 538.6,143.6 L 539.7,145.4 L 538.7,145.7 L 538.9,146.8 L 537.6,147.1 L 537.9,148.9 L 536.9,149.2 L 536.1,148.1 L 533.8,147.2 L 533.4,147.9 L 534.4,149.6 L 538.0,149.7 L 538.1,150.5 L 530.5,150.2 L 529.2,148.5 L 527.7,148.6 L 527.4,147.8 L 524.8,147.8 L 521.0,146.7 L 518.5,147.3 L 518.0,143.8 L 517.2,143.2 L 516.7,141.2 L 511.5,142.3 L 510.7,141.8 L 506.9,142.3 L 506.0,143.8 L 495.6,143.6 L 494.4,141.5 L 495.6,141.1 L 495.0,140.1 L 496.4,138.0 L 492.4,135.4 L 492.5,134.6 L 490.5,134.6 L 489.8,135.4 L 486.9,136.4 L 485.2,136.4 L 481.8,135.7 L 481.9,133.9 L 473.6,134.1 L 473.1,135.7 L 471.4,135.9 L 471.7,137.3 L 469.8,137.5 L 467.4,134.7 L 462.6,135.0 L 464.6,133.3 L 464.4,132.2 L 459.5,132.4 L 459.9,131.7 L 459.7,129.7 L 458.6,129.5 L 458.4,128.6 L 454.2,128.6 L 452.0,129.6 L 451.0,129.5 L 450.6,130.5 L 449.8,130.5 L 450.1,131.4 L 451.2,131.6 L 450.6,132.4 L 449.2,132.2 L 448.8,130.6 L 446.5,129.9 L 446.5,129.0 L 444.5,128.9 L 444.6,129.9 L 441.8,130.1 L 441.7,129.5 L 439.8,129.4 L 439.6,129.9 L 438.1,129.8 L 439.1,131.1 L 438.7,131.4 L 435.8,131.3 L 435.9,132.3 L 436.8,132.3 L 436.2,133.0 L 435.7,132.7 L 432.7,134.3 L 434.2,136.2 L 435.9,137.2 L 438.1,137.3 L 437.8,138.7 L 439.2,138.8 L 439.5,139.4 L 439.5,140.3 L 438.8,140.4 L 439.9,141.4 L 436.9,143.0 L 437.8,145.0 L 436.7,144.9 L 438.4,146.0 L 432.1,148.2 L 430.7,150.4 L 428.5,150.2 L 426.9,151.5 L 424.1,151.5 L 424.5,152.8 L 425.9,153.7 L 423.5,155.3 L 422.7,155.0 L 422.1,155.6 L 422.6,156.0 L 421.5,156.7 L 414.9,153.8 L 410.6,153.9 L 410.8,158.0 L 406.7,157.1 L 405.4,157.6 L 401.3,156.7 L 395.0,156.7 L 394.9,154.8 L 388.2,156.0 L 386.6,153.8 L 383.4,153.7 L 383.6,147.4 L 385.7,147.1 L 385.6,144.9 L 386.0,144.9 L 385.8,143.1 L 384.9,143.0 L 384.2,141.1 L 388.4,139.9 L 391.3,140.3 L 391.8,139.0 L 388.8,137.9 L 388.6,132.7 L 385.3,132.5 L 384.4,130.9 L 386.9,129.3 L 386.9,126.2 L 384.4,126.5 L 382.3,122.6 L 389.8,120.6 L 388.7,118.9 L 383.6,117.5 L 387.4,116.7 L 385.1,113.1 L 385.7,112.7 L 384.3,110.1 L 396.7,108.3 L 398.0,107.5 L 402.9,107.4 L 407.4,106.4 L 408.0,105.5 L 414.4,105.8 L 416.8,105.2 L 417.4,104.1 L 418.9,103.4 L 421.9,104.1 L 425.6,103.7 L 425.7,102.5 L 427.1,101.6 L 425.4,100.5 L 424.9,99.3 L 433.5,99.2 L 436.4,95.9 L 440.9,97.3 L 441.0,96.3 L 439.5,95.9 L 439.8,94.5 L 442.7,94.9 L 444.9,96.4 L 448.3,95.8 L 454.1,96.2 L 457.9,97.3 L 459.4,99.0 L 463.5,100.3 L 468.3,99.1 L 469.8,97.5 L 472.8,97.9 L 476.5,97.1 L 480.4,101.5 L 480.0,105.1 L 481.0,106.1 L 481.2,107.4 L 482.8,108.6 L 486.0,109.6 L 486.0,110.4 L 484.0,111.0 L 484.6,114.8 L 484.1,116.2 L 480.4,115.8 L 480.6,116.8 L 482.1,117.3 L 481.5,118.4 L 483.0,120.1 L 484.2,120.3 L 487.0,118.9 L 489.9,119.4 L 490.2,120.4 L 492.9,120.5 L 494.7,119.8 L 494.3,118.7 L 495.1,117.6 L 500.1,118.1 L 501.5,119.5 L 503.0,119.9 L 503.5,118.9 L 501.3,118.0 L 502.1,116.8 L 500.4,115.5 L 502.4,115.4 L 504.8,116.2 L 505.1,117.5 L 506.0,117.8 L 505.7,118.8 L 509.3,119.8 L 509.3,120.3 L 506.8,120.8 L 507.9,121.7 L 507.0,123.4 L 509.0,124.3 L 510.5,122.7 L 513.8,123.5 L 512.7,121.6 L 509.8,121.6 L 510.3,120.4 L 511.4,119.9 L 518.8,120.6 L 518.8,121.4 L 520.0,121.6 L 520.6,122.6 L 524.9,123.4 L 527.1,123.4 L 527.2,122.7 L 529.5,123.5 L 529.2,122.4 L 531.5,121.7 L 531.6,121.0 L 533.9,121.4 L 532.7,125.2 L 528.3,124.8 L 527.6,125.5 L 528.1,126.1 L 526.0,126.5 L 525.6,128.6 L 524.3,128.7 L 524.7,129.5 L 524.0,130.8 L 527.0,131.6 L 526.6,132.7 L 528.0,133.3 Z`;
 
-  akmola_mid_right: [625, 208],
-  akmola_bot_right: [588, 282],
-  akmola_bot_mid: [500, 292],
-  akmola_bot_left: [410, 282],
-  akmola_mid_left: [340, 208],
+const PATH_CENTER = `M 608.8,255.9 L 609.6,266.0 L 603.7,266.5 L 603.7,267.7 L 602.2,267.9 L 601.6,266.8 L 599.6,266.0 L 597.7,266.2 L 595.6,265.5 L 594.3,265.7 L 596.4,267.1 L 590.3,265.7 L 589.7,266.7 L 587.9,266.3 L 587.3,266.8 L 586.8,265.7 L 585.4,266.7 L 584.3,266.5 L 584.3,266.0 L 577.7,265.2 L 571.7,265.9 L 567.0,265.3 L 555.8,269.7 L 546.3,276.0 L 542.4,279.7 L 443.4,280.1 L 407.3,279.7 L 407.0,277.8 L 406.0,277.6 L 398.3,277.9 L 372.7,273.1 L 369.1,271.7 L 365.5,268.9 L 361.4,268.7 L 351.6,265.0 L 349.6,265.0 L 338.9,261.7 L 337.0,262.5 L 331.2,260.3 L 328.6,260.5 L 323.3,257.6 L 315.2,258.6 L 343.7,244.8 L 348.1,241.6 L 346.3,241.0 L 342.7,236.8 L 348.2,233.5 L 347.1,231.1 L 354.4,230.1 L 352.9,228.8 L 353.6,228.1 L 352.9,226.9 L 357.0,227.0 L 358.0,222.0 L 373.1,223.6 L 378.2,222.7 L 379.5,220.6 L 385.6,220.4 L 391.5,216.2 L 394.5,215.9 L 395.8,213.0 L 398.3,213.2 L 399.4,211.5 L 406.5,208.1 L 417.4,199.7 L 416.5,198.5 L 417.0,198.1 L 416.3,197.3 L 417.0,196.7 L 423.9,195.4 L 427.0,193.0 L 423.3,190.8 L 423.2,189.7 L 421.9,188.6 L 425.8,188.4 L 427.7,189.3 L 434.3,186.7 L 434.9,186.0 L 441.0,185.9 L 440.7,190.2 L 439.8,190.6 L 440.2,192.3 L 438.5,195.6 L 437.1,196.6 L 437.8,197.4 L 439.4,197.0 L 443.4,198.6 L 445.9,197.8 L 447.2,198.2 L 447.1,196.3 L 448.6,196.8 L 450.2,196.1 L 449.5,194.7 L 452.1,193.7 L 452.5,194.8 L 453.6,194.2 L 454.9,195.7 L 456.0,195.8 L 455.6,197.4 L 465.2,196.1 L 465.8,197.2 L 466.7,197.0 L 467.2,197.6 L 465.4,199.2 L 465.3,200.6 L 466.5,201.0 L 473.1,199.2 L 473.7,198.4 L 472.5,196.4 L 476.7,195.2 L 478.1,196.8 L 478.4,192.7 L 484.0,191.1 L 483.6,190.4 L 485.1,189.6 L 486.8,189.8 L 487.5,189.0 L 488.9,189.0 L 489.4,187.1 L 492.4,186.3 L 492.3,185.8 L 493.2,185.7 L 493.5,186.3 L 494.8,186.0 L 495.1,186.7 L 496.5,186.6 L 498.7,187.9 L 497.4,189.0 L 498.2,189.7 L 497.6,190.2 L 497.9,191.1 L 496.1,192.8 L 501.9,192.1 L 504.4,193.3 L 504.1,192.7 L 505.4,192.5 L 505.0,190.6 L 507.2,189.5 L 509.5,190.4 L 511.1,189.9 L 509.0,189.0 L 510.4,188.2 L 509.8,187.7 L 511.6,187.4 L 511.7,186.7 L 514.5,186.6 L 515.8,185.6 L 515.4,184.9 L 517.4,183.5 L 520.5,184.3 L 521.3,183.5 L 524.1,183.0 L 523.4,182.0 L 528.6,180.9 L 531.5,179.2 L 528.0,178.3 L 526.9,179.8 L 525.2,177.4 L 524.3,177.1 L 524.7,176.1 L 525.6,175.9 L 526.2,176.4 L 528.0,175.7 L 528.5,176.7 L 529.8,175.5 L 539.9,177.7 L 540.0,179.1 L 540.8,179.9 L 539.6,183.1 L 539.7,185.0 L 538.6,185.2 L 538.1,185.9 L 538.9,186.7 L 537.5,187.6 L 540.4,189.6 L 546.1,188.9 L 547.6,188.1 L 547.9,188.6 L 551.1,189.0 L 552.2,189.9 L 551.1,190.4 L 552.4,192.6 L 553.7,190.4 L 556.5,192.2 L 557.6,192.3 L 559.1,193.9 L 558.4,194.2 L 559.0,195.2 L 561.2,195.7 L 561.5,196.5 L 560.9,196.7 L 561.2,197.1 L 557.2,197.8 L 556.0,198.8 L 556.7,200.3 L 558.0,200.2 L 558.3,200.8 L 560.3,200.4 L 565.3,197.7 L 571.0,197.8 L 572.9,196.7 L 573.8,197.3 L 580.7,196.1 L 583.2,197.0 L 584.2,196.9 L 585.1,195.3 L 587.1,195.0 L 589.3,194.8 L 591.5,195.6 L 592.2,194.8 L 592.1,192.9 L 593.3,189.8 L 595.3,188.5 L 599.1,187.9 L 602.5,190.3 L 606.6,190.4 L 609.9,191.7 L 611.0,194.3 L 609.5,195.7 L 611.7,196.7 L 611.3,197.8 L 606.9,200.8 L 601.4,202.0 L 600.9,203.5 L 601.5,204.1 L 601.0,205.3 L 601.5,206.2 L 599.4,209.0 L 589.7,211.6 L 589.4,212.8 L 591.0,213.9 L 590.9,214.6 L 595.5,216.5 L 595.5,217.8 L 599.0,219.7 L 595.1,220.4 L 594.8,222.4 L 596.2,224.2 L 604.2,223.4 L 605.0,224.9 L 604.2,227.9 L 600.6,230.4 L 598.1,230.1 L 597.1,230.7 L 597.3,231.7 L 595.8,232.0 L 596.5,233.0 L 598.2,233.6 L 598.5,234.4 L 602.5,234.6 L 602.0,235.2 L 600.3,235.3 L 599.8,236.3 L 602.3,237.8 L 604.3,237.7 L 605.7,238.5 L 602.0,239.4 L 603.2,240.5 L 601.9,240.5 L 601.7,242.1 L 600.7,242.1 L 598.6,246.6 L 599.4,247.6 L 600.7,251.6 L 597.0,251.3 L 597.1,252.7 L 596.3,254.1 L 594.7,254.5 L 599.4,257.3 L 602.3,258.0 L 603.3,256.3 L 604.5,255.7 L 606.8,256.5 L 608.8,255.9 Z`;
 
-  pavlodar_top_right: [722, 48],
-  pavlodar_mid_right: [755, 112],
-  pavlodar_bot_right: [742, 198],
-  pavlodar_bot_mid: [672, 215],
+const PATH_SHYMKENT = `M 384.5,350.0 L 384.3,338.3 L 379.0,340.1 L 375.5,331.6 L 368.6,326.9 L 366.1,323.0 L 365.0,322.4 L 363.0,322.5 L 353.3,325.8 L 331.2,324.4 L 304.4,328.0 L 290.0,315.3 L 285.3,315.3 L 261.0,299.9 L 246.6,292.2 L 245.9,279.2 L 259.4,266.6 L 267.3,261.6 L 273.3,261.3 L 273.9,257.0 L 282.1,257.5 L 288.8,245.3 L 300.7,243.4 L 305.7,248.9 L 308.1,248.6 L 313.5,253.3 L 312.7,254.6 L 318.3,255.2 L 319.1,256.1 L 320.6,255.7 L 315.2,258.6 L 323.3,257.6 L 328.6,260.5 L 331.2,260.3 L 337.0,262.5 L 338.9,261.7 L 349.6,265.0 L 351.6,265.0 L 361.4,268.7 L 365.5,268.9 L 369.1,271.7 L 372.7,273.1 L 398.3,277.9 L 407.0,277.8 L 407.0,281.3 L 410.1,283.0 L 410.7,284.3 L 409.0,286.4 L 406.9,293.1 L 410.7,295.3 L 413.8,296.2 L 413.9,309.9 L 413.3,311.5 L 415.3,313.0 L 416.5,312.7 L 418.8,313.6 L 421.1,316.3 L 426.5,319.0 L 425.1,320.0 L 424.3,319.6 L 422.1,320.7 L 423.1,322.2 L 422.9,324.3 L 422.1,324.6 L 420.1,323.4 L 420.1,326.5 L 418.3,327.9 L 418.0,330.1 L 416.0,330.5 L 416.6,332.4 L 417.5,332.1 L 417.1,330.8 L 418.2,330.4 L 418.0,331.3 L 419.1,331.2 L 418.8,332.3 L 419.6,333.6 L 420.9,333.3 L 420.9,334.0 L 407.2,338.7 L 402.3,341.4 L 396.8,345.5 L 394.1,344.2 L 386.2,350.3 L 384.5,350.0 Z`;
 
-  eko_top_right: [895, 62],
-  eko_mid_right: [895, 372],
-  eko_bot_right: [812, 396],
-  eko_bot_mid: [738, 342],
-  eko_bot_left: [692, 252],
-
-  karaganda_mid_right: [692, 392],
-  karaganda_bot_right: [612, 432],
-  karaganda_bot_mid: [488, 442],
-  karaganda_bot_left: [365, 422],
-  karaganda_mid_left_2: [278, 352],
-
-  kyzylorda_bot_right: [328, 502],
-  kyzylorda_bot_mid_2: [248, 518],
-  kyzylorda_bot_mid_1: [165, 498],
-
-  turkestan_mid_right: [475, 528],
-  turkestan_bot_right: [415, 555],
-  turkestan_bot_mid: [312, 548],
-
-  zhambyl_mid_right: [648, 488],
-  zhambyl_bot_right: [605, 552],
-  zhambyl_bot_left: [478, 558],
-
-  almaty_top_right_2: [895, 372],
-  almaty_bot_right: [895, 558],
-  almaty_bot_left: [755, 558]
-};
-
-// Polyline generator from vertex keys
-function poly(...points: number[][]): string {
-  return points.map(p => p.join(',')).join(' L ');
-}
-
-// Exact 14 region paths reconstructed with shared vertices
-const PATH_WKO = `M ${poly(V.wko_bot_left, V.wko_bot_mid, V.wko_bot_right, V.wko_mid_right, V.wko_top_right, V.wko_top_mid, V.wko_top_left)} Z`;
-const PATH_ATYRAU = `M ${poly(V.wko_bot_left, V.wko_bot_mid, V.wko_bot_right, V.atyrau_mid_right, V.atyrau_mid_right_2, V.atyrau_bot_right, V.atyrau_bot_mid, V.atyrau_bot_left, V.atyrau_mid_left)} Z`;
-const PATH_MANGYSTAU = `M ${poly(V.atyrau_bot_left, V.atyrau_bot_mid, V.mangystau_mid_right, V.mangystau_bot_right, V.mangystau_bot_left, V.mangystau_mid_left)} Z`;
-const PATH_AKTOBE = `M ${poly(V.wko_top_right, V.aktobe_top_mid, V.aktobe_top_right, V.aktobe_mid_right, V.aktobe_bot_right, V.atyrau_mid_right, V.wko_bot_right, V.wko_mid_right)} Z`;
-const PATH_KOSTANAY = `M ${poly(V.aktobe_top_mid, V.kostanay_top_mid, V.kostanay_top_right, V.kostanay_mid_right, V.kostanay_bot_right, V.aktobe_top_right)} Z`;
-const PATH_NKO = `M ${poly(V.kostanay_top_mid, V.nko_top_right, V.nko_mid_right, V.nko_bot_right, V.nko_bot_left, V.kostanay_top_right)} Z`;
-const PATH_AKMOLA = `M ${poly(V.kostanay_bot_right, V.kostanay_mid_right, V.nko_bot_left, V.nko_bot_right, V.akmola_mid_right, V.akmola_bot_right, V.akmola_bot_mid, V.akmola_bot_left, V.akmola_mid_left)} Z`;
-const PATH_PAVLODAR = `M ${poly(V.nko_bot_right, V.nko_mid_right, V.pavlodar_top_right, V.pavlodar_mid_right, V.pavlodar_bot_right, V.pavlodar_bot_mid, V.akmola_mid_right)} Z`;
-const PATH_EKO = `M ${poly(V.pavlodar_top_right, V.eko_top_right, V.eko_mid_right, V.eko_bot_right, V.eko_bot_mid, V.eko_bot_left, V.pavlodar_bot_right, V.pavlodar_mid_right)} Z`;
-const PATH_KARAGANDA = `M ${poly(V.akmola_mid_left, V.akmola_bot_left, V.akmola_bot_mid, V.akmola_bot_right, V.akmola_mid_right, V.pavlodar_bot_mid, V.eko_bot_left, V.karaganda_mid_right, V.karaganda_bot_right, V.karaganda_bot_mid, V.karaganda_bot_left, V.aktobe_bot_right, V.karaganda_mid_left_2, V.aktobe_mid_right)} Z`;
-const PATH_KYZYLORDA = `M ${poly(V.atyrau_mid_right, V.aktobe_bot_right, V.karaganda_mid_left_2, V.karaganda_bot_left, V.kyzylorda_bot_right, V.kyzylorda_bot_mid_2, V.kyzylorda_bot_mid_1, V.atyrau_bot_right, V.atyrau_bot_mid, V.atyrau_mid_right_2)} Z`;
-const PATH_TURKESTAN = `M ${poly(V.kyzylorda_bot_mid_2, V.karaganda_bot_left, V.karaganda_bot_mid, V.turkestan_mid_right, V.turkestan_bot_right, V.turkestan_bot_mid, V.kyzylorda_bot_right)} Z`;
-const PATH_ZHAMBYL = `M ${poly(V.turkestan_mid_right, V.karaganda_bot_mid, V.karaganda_bot_right, V.zhambyl_mid_right, V.zhambyl_bot_right, V.zhambyl_bot_left)} Z`;
-const PATH_ALMATY = `M ${poly(V.karaganda_bot_right, V.karaganda_mid_right, V.eko_bot_right, V.almaty_top_right_2, V.almaty_bot_right, V.almaty_bot_left, V.zhambyl_mid_right)} Z`;
-
-interface RegionItem {
+/* ─── Region definitions with zone mapping ─── */
+interface RegionDef {
   id: string;
+  zone: string;
   name: string;
   path: string;
   cx: number;
   cy: number;
 }
 
-const REGIONS: RegionItem[] = [
-  { id: 'wko', name: 'Западно-Казахстанская', path: PATH_WKO, cx: 72, cy: 220 },
-  { id: 'atyrau', name: 'Атырауская', path: PATH_ATYRAU, cx: 56, cy: 388 },
-  { id: 'mangystau', name: 'Мангистауская', path: PATH_MANGYSTAU, cx: 76, cy: 510 },
-  { id: 'aktobe', name: 'Актюбинская', path: PATH_AKTOBE, cx: 212, cy: 210 },
-  { id: 'kostanay', name: 'Костанайская', path: PATH_KOSTANAY, cx: 332, cy: 108 },
-  { id: 'nko', name: 'Северо-Казахстанская', path: PATH_NKO, cx: 492, cy: 72 },
-  { id: 'akmola', name: 'Акмолинская', path: PATH_AKMOLA, cx: 490, cy: 212 },
-  { id: 'pavlodar', name: 'Павлодарская', path: PATH_PAVLODAR, cx: 672, cy: 135 },
-  { id: 'eko', name: 'Восточно-Казахстанская', path: PATH_EKO, cx: 808, cy: 222 },
-  { id: 'karaganda', name: 'Карагандинская', path: PATH_KARAGANDA, cx: 492, cy: 348 },
-  { id: 'kyzylorda', name: 'Кызылординская', path: PATH_KYZYLORDA, cx: 240, cy: 428 },
-  { id: 'turkestan', name: 'Туркестанская', path: PATH_TURKESTAN, cx: 385, cy: 492 },
-  { id: 'zhambyl', name: 'Жамбылская', path: PATH_ZHAMBYL, cx: 558, cy: 495 },
-  { id: 'almaty', name: 'Алматинская', path: PATH_ALMATY, cx: 758, cy: 468 },
+const REGIONS: RegionDef[] = [
+  { id: 'west',    zone: 'west',     name: 'Батыс Қазақстан',    path: PATH_WEST,     cx: 180, cy: 230 },
+  { id: 'north',   zone: 'north',    name: 'Солтүстік Қазақстан', path: PATH_NORTH,    cx: 460, cy: 128 },
+  { id: 'center',  zone: 'center',   name: 'Орталық Қазақстан',   path: PATH_CENTER,   cx: 510, cy: 218 },
+  { id: 'east',    zone: 'east',     name: 'Шығыс Қазақстан',    path: PATH_EAST,     cx: 720, cy: 228 },
+  { id: 'almaty',  zone: 'almaty',   name: 'Алматы облысы',       path: PATH_ALMATY,   cx: 628, cy: 305 },
+  { id: 'astana',  zone: 'astana',   name: 'Астана аймағы',       path: PATH_ASTANA,   cx: 470, cy: 172 },
+  { id: 'shymkent',zone: 'shymkent', name: 'Оңтүстік Қазақстан',  path: PATH_SHYMKENT, cx: 350, cy: 300 },
 ];
 
 const CITIES = [
-  { name: 'Астана', x: 505, y: 208, capital: true },
-  { name: 'Алматы', x: 718, y: 468 },
-  { name: 'Шымкент', x: 440, y: 518 },
-  { name: 'Актобе', x: 200, y: 195 },
-  { name: 'Атырау', x: 58, y: 378 },
-  { name: 'Қарағанды', x: 492, y: 345 },
-  { name: 'Өскемен', x: 808, y: 222 },
-  { name: 'Павлодар', x: 672, y: 128 },
+  { name: 'Астана',    x: 505, y: 164, capital: true },
+  { name: 'Алматы',    x: 628, y: 305, capital: false },
+  { name: 'Шымкент',   x: 400, y: 335, capital: false },
+  { name: 'Ақтөбе',    x: 240, y: 195, capital: false },
+  { name: 'Атырау',    x: 100, y: 260, capital: false },
+  { name: 'Қарағанды',  x: 514, y: 213, capital: false },
+  { name: 'Өскемен',   x: 710, y: 222, capital: false },
+  { name: 'Павлодар',   x: 588, y: 128, capital: false },
+  { name: 'Қостанай',   x: 370, y: 120, capital: false },
+  { name: 'Қызылорда',  x: 290, y: 295, capital: false },
 ];
 
 export function KazakhstanMap() {
   const posts = useAppStore(s => s.posts);
   const [hovered, setHovered] = useState<string | null>(null);
 
-  // Count fraud/threat posts per region (mapping 7-zone data store values to 14 oblasts)
-  const regionCount: Record<string, number> = {};
+  // Count threat posts per zone
+  const zoneCount: Record<string, number> = {};
   posts.forEach(p => {
     if (!p.region || p.category === 'safe') return;
-
-    if (p.region === 'west') {
-      ['wko', 'atyrau', 'mangystau', 'aktobe'].forEach(id => {
-        regionCount[id] = (regionCount[id] || 0) + 1;
-      });
-    } else if (p.region === 'north') {
-      ['kostanay', 'nko', 'akmola', 'pavlodar'].forEach(id => {
-        regionCount[id] = (regionCount[id] || 0) + 1;
-      });
-    } else if (p.region === 'east') {
-      ['eko'].forEach(id => {
-        regionCount[id] = (regionCount[id] || 0) + 1;
-      });
-    } else if (p.region === 'center') {
-      ['karaganda'].forEach(id => {
-        regionCount[id] = (regionCount[id] || 0) + 1;
-      });
-    } else if (p.region === 'almaty') {
-      ['almaty'].forEach(id => {
-        regionCount[id] = (regionCount[id] || 0) + 1;
-      });
-    } else if (p.region === 'astana') {
-      ['akmola'].forEach(id => {
-        regionCount[id] = (regionCount[id] || 0) + 1;
-      });
-    } else if (p.region === 'shymkent') {
-      ['turkestan', 'zhambyl', 'kyzylorda'].forEach(id => {
-        regionCount[id] = (regionCount[id] || 0) + 1;
-      });
-    }
+    zoneCount[p.region] = (zoneCount[p.region] || 0) + 1;
   });
 
-  const getGlow = (id: string) => {
-    const count = regionCount[id] || 0;
-    if (count > 2) return '#ff5640'; // High threat
-    if (count > 0) return '#ffb020'; // Medium threat
-    return '#46e08a'; // Safe
+  const getGlow = (zone: string) => {
+    const count = zoneCount[zone] || 0;
+    if (count > 2) return '#ff5640';
+    if (count > 0) return '#ffb020';
+    return '#46e08a';
   };
 
-  const getFill = (id: string) => {
-    const count = regionCount[id] || 0;
-    if (hovered === id) return 'rgba(206, 255, 26, 0.12)';
+  const getFill = (id: string, zone: string) => {
+    const count = zoneCount[zone] || 0;
+    if (hovered === id) return 'rgba(206, 255, 26, 0.15)';
     if (count > 2) return 'rgba(255, 86, 64, 0.08)';
     if (count > 0) return 'rgba(255, 176, 32, 0.06)';
-    return 'rgba(14, 30, 20, 0.65)';
+    return 'rgba(14, 30, 20, 0.6)';
   };
 
   const hoveredRegion = REGIONS.find(r => r.id === hovered);
@@ -195,53 +81,53 @@ export function KazakhstanMap() {
   return (
     <div style={{ position: 'relative', width: '100%' }}>
       <svg
-        viewBox="0 0 910 570"
+        viewBox="0 0 800 400"
         style={{ width: '100%', height: 'auto', display: 'block' }}
         xmlns="http://www.w3.org/2000/svg"
       >
         <defs>
-          <filter id="glow-strong">
+          <filter id="map-glow-strong">
             <feGaussianBlur stdDeviation="3" result="coloredBlur" />
             <feMerge>
               <feMergeNode in="coloredBlur" />
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
-          <filter id="glow-soft">
-            <feGaussianBlur stdDeviation="6" result="coloredBlur" />
+          <filter id="map-glow-soft">
+            <feGaussianBlur stdDeviation="5" result="coloredBlur" />
             <feMerge>
               <feMergeNode in="coloredBlur" />
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
-          <filter id="glow-city">
+          <filter id="map-glow-city">
             <feGaussianBlur stdDeviation="4" result="coloredBlur" />
             <feMerge>
               <feMergeNode in="coloredBlur" />
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
-          <radialGradient id="bg-grad" cx="50%" cy="50%" r="60%">
+          <radialGradient id="map-bg-grad" cx="50%" cy="50%" r="60%">
             <stop offset="0%" stopColor="#0b1710" />
             <stop offset="100%" stopColor="#060c08" />
           </radialGradient>
-          <pattern id="dots" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
-            <circle cx="1" cy="1" r="0.8" fill="#1c2f25" opacity="0.6" />
+          <pattern id="map-dots" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+            <circle cx="1" cy="1" r="0.6" fill="#1c2f25" opacity="0.5" />
           </pattern>
         </defs>
 
         {/* Background */}
-        <rect width="910" height="570" fill="url(#bg-grad)" />
-        <rect width="910" height="570" fill="url(#dots)" />
+        <rect width="800" height="400" fill="url(#map-bg-grad)" rx="8" />
+        <rect width="800" height="400" fill="url(#map-dots)" rx="8" />
 
         {/* Outer glow aura */}
-        <g filter="url(#glow-soft)" opacity="0.3">
+        <g filter="url(#map-glow-soft)" opacity="0.25">
           {REGIONS.map(r => (
             <path key={r.id + '-aura'} d={r.path} fill="none" stroke="#ceff1a" strokeWidth="6" />
           ))}
         </g>
 
-        {/* Regions */}
+        {/* Region shapes */}
         {REGIONS.map(r => (
           <g key={r.id} style={{ cursor: 'pointer' }}
             onMouseEnter={() => setHovered(r.id)}
@@ -249,22 +135,23 @@ export function KazakhstanMap() {
           >
             <path
               d={r.path}
-              fill={getFill(r.id)}
-              stroke={getGlow(r.id)}
-              strokeWidth={hovered === r.id ? 2 : 1}
-              style={{ transition: 'all 0.25s' }}
-              filter={hovered === r.id ? 'url(#glow-strong)' : undefined}
+              fill={getFill(r.id, r.zone)}
+              stroke={getGlow(r.zone)}
+              strokeWidth={hovered === r.id ? 2.2 : 1.2}
+              strokeLinejoin="round"
+              style={{ transition: 'all 0.3s ease' }}
+              filter={hovered === r.id ? 'url(#map-glow-strong)' : undefined}
             />
-            {/* Count badge if fraud detected */}
-            {(regionCount[r.id] || 0) > 0 && (
+            {/* Threat count badge */}
+            {(zoneCount[r.zone] || 0) > 0 && (
               <text
                 x={r.cx} y={r.cy}
                 textAnchor="middle" dominantBaseline="middle"
-                fill="#ceff1a" fontSize="10.5" fontWeight="700"
+                fill="#ceff1a" fontSize="11" fontWeight="700"
                 opacity="0.95"
-                style={{ pointerEvents: 'none', textShadow: '0 0 4px #000' }}
+                style={{ pointerEvents: 'none', textShadow: '0 0 6px #000' }}
               >
-                {regionCount[r.id]}
+                {zoneCount[r.zone]}
               </text>
             )}
           </g>
@@ -272,20 +159,29 @@ export function KazakhstanMap() {
 
         {/* City dots */}
         {CITIES.map(city => (
-          <g key={city.name} filter="url(#glow-city)">
+          <g key={city.name} filter="url(#map-glow-city)">
             {city.capital && (
               <circle cx={city.x} cy={city.y} r="8" fill="none" stroke="#ceff1a" strokeWidth="1" opacity="0.4">
-                <animate attributeName="r" values="8;12;8" dur="2s" repeatCount="indefinite" />
-                <animate attributeName="opacity" values="0.4;0.1;0.4" dur="2s" repeatCount="indefinite" />
+                <animate attributeName="r" values="8;13;8" dur="2.5s" repeatCount="indefinite" />
+                <animate attributeName="opacity" values="0.4;0.08;0.4" dur="2.5s" repeatCount="indefinite" />
               </circle>
             )}
             <circle cx={city.x} cy={city.y} r={city.capital ? 4 : 2.5}
               fill={city.capital ? '#ceff1a' : '#7ab800'}
             >
               {!city.capital && (
-                <animate attributeName="opacity" values="1;0.5;1" dur="3s" repeatCount="indefinite" />
+                <animate attributeName="opacity" values="1;0.45;1" dur="3.5s" repeatCount="indefinite" />
               )}
             </circle>
+            <text
+              x={city.x} y={city.y - 8}
+              textAnchor="middle" fill="#a0b080"
+              fontSize="7" fontWeight="500"
+              style={{ pointerEvents: 'none', textShadow: '0 0 3px #000' }}
+              opacity="0.7"
+            >
+              {city.name}
+            </text>
           </g>
         ))}
 
@@ -293,27 +189,27 @@ export function KazakhstanMap() {
         {hovered && hoveredRegion && (
           <g>
             <rect
-              x={Math.min(hoveredRegion.cx - 70, 760)}
-              y={Math.max(hoveredRegion.cy - 50, 10)}
-              width="140" height="36" rx="6"
-              fill="#0e1a12" stroke="#ceff1a33"
-              style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.5))' }}
+              x={Math.min(hoveredRegion.cx - 80, 630)}
+              y={Math.max(hoveredRegion.cy - 55, 8)}
+              width="160" height="40" rx="6"
+              fill="#0e1a12" stroke="#ceff1a33" strokeWidth="1"
+              style={{ filter: 'drop-shadow(0 4px 16px rgba(0,0,0,0.6))' }}
             />
             <text
-              x={Math.min(hoveredRegion.cx, 830)}
-              y={Math.max(hoveredRegion.cy - 36, 24)}
+              x={Math.min(hoveredRegion.cx, 710)}
+              y={Math.max(hoveredRegion.cy - 40, 22)}
               textAnchor="middle" fill="#ceff1a"
               fontSize="10.5" fontWeight="600"
             >
               {hoveredRegion.name}
             </text>
             <text
-              x={Math.min(hoveredRegion.cx, 830)}
-              y={Math.max(hoveredRegion.cy - 22, 38)}
+              x={Math.min(hoveredRegion.cx, 710)}
+              y={Math.max(hoveredRegion.cy - 26, 36)}
               textAnchor="middle" fill="#999"
-              fontSize="9"
+              fontSize="8.5"
             >
-              {regionCount[hoveredRegion.id] ? `угроз: ${regionCount[hoveredRegion.id]}` : 'нет угроз'}
+              {zoneCount[hoveredRegion.zone] ? `угроз: ${zoneCount[hoveredRegion.zone]}` : 'нет угроз'}
             </text>
           </g>
         )}
@@ -321,15 +217,16 @@ export function KazakhstanMap() {
 
       {/* Legend */}
       <div style={{
-        position: 'absolute', bottom: 12, right: 12,
+        position: 'absolute', bottom: 10, right: 10,
         display: 'flex', flexDirection: 'column', gap: 4,
-        background: 'rgba(10,20,15,0.75)', padding: '6px 10px',
-        borderRadius: '6px', border: '1px solid rgba(255,255,255,0.06)'
+        background: 'rgba(10,20,15,0.8)', padding: '6px 10px',
+        borderRadius: '6px', border: '1px solid rgba(255,255,255,0.06)',
+        backdropFilter: 'blur(4px)'
       }}>
         {[
-          { color: '#ff5640', label: 'Высокий риск (>2)' },
-          { color: '#ffb020', label: 'Средний риск (>0)' },
-          { color: '#46e08a', label: 'Чистая зона' },
+          { color: '#ff5640', label: 'Жоғары қауіп (>2)' },
+          { color: '#ffb020', label: 'Орташа қауіп (>0)' },
+          { color: '#46e08a', label: 'Таза аймақ' },
         ].map(item => (
           <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ width: 8, height: 8, borderRadius: 2, background: item.color }} />
