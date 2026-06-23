@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
+import type { Region } from '../types';
+
 
 /* ─── Real geographic SVG paths for Kazakhstan (viewBox 0 0 800 480) ─── */
 
@@ -50,9 +52,17 @@ const CITIES = [
   { name: 'Қызылорда',  x: 290, y: 295, capital: false },
 ];
 
-export function KazakhstanMap() {
+interface KazakhstanMapProps {
+  selectedRegion?: Region | 'all';
+  onSelectRegion?: (region: Region | 'all') => void;
+}
+
+export function KazakhstanMap({ selectedRegion, onSelectRegion }: KazakhstanMapProps = {}) {
   const posts = useAppStore(s => s.posts);
+  const [localSelected, setLocalSelected] = useState<Region | 'all'>('all');
   const [hovered, setHovered] = useState<string | null>(null);
+
+  const activeSelected = selectedRegion !== undefined ? selectedRegion : localSelected;
 
   // Count threat posts per zone
   const zoneCount: Record<string, number> = {};
@@ -70,13 +80,24 @@ export function KazakhstanMap() {
 
   const getFill = (id: string, zone: string) => {
     const count = zoneCount[zone] || 0;
-    if (hovered === id) return 'rgba(206, 255, 26, 0.15)';
+    const isSelected = activeSelected === id;
+    if (hovered === id || isSelected) return 'rgba(206, 255, 26, 0.18)';
     if (count > 2) return 'rgba(255, 86, 64, 0.08)';
     if (count > 0) return 'rgba(255, 176, 32, 0.06)';
     return 'rgba(14, 30, 20, 0.6)';
   };
 
+  const handleSelect = (id: string) => {
+    const next: Region | 'all' = activeSelected === id ? 'all' : (id as Region);
+    if (onSelectRegion) {
+      onSelectRegion(next);
+    } else {
+      setLocalSelected(next);
+    }
+  };
+
   const hoveredRegion = REGIONS.find(r => r.id === hovered);
+  const isAnyActive = activeSelected !== 'all';
 
   return (
     <div style={{ position: 'relative', width: '100%' }}>
@@ -128,34 +149,40 @@ export function KazakhstanMap() {
         </g>
 
         {/* Region shapes */}
-        {REGIONS.map(r => (
-          <g key={r.id} style={{ cursor: 'pointer' }}
-            onMouseEnter={() => setHovered(r.id)}
-            onMouseLeave={() => setHovered(null)}
-          >
-            <path
-              d={r.path}
-              fill={getFill(r.id, r.zone)}
-              stroke={getGlow(r.zone)}
-              strokeWidth={hovered === r.id ? 2.2 : 1.2}
-              strokeLinejoin="round"
-              style={{ transition: 'all 0.3s ease' }}
-              filter={hovered === r.id ? 'url(#map-glow-strong)' : undefined}
-            />
-            {/* Threat count badge */}
-            {(zoneCount[r.zone] || 0) > 0 && (
-              <text
-                x={r.cx} y={r.cy}
-                textAnchor="middle" dominantBaseline="middle"
-                fill="#ceff1a" fontSize="11" fontWeight="700"
-                opacity="0.95"
-                style={{ pointerEvents: 'none', textShadow: '0 0 6px #000' }}
-              >
-                {zoneCount[r.zone]}
-              </text>
-            )}
-          </g>
-        ))}
+        {REGIONS.map(r => {
+          const isSelected = activeSelected === r.id;
+          const opacity = isAnyActive && !isSelected ? 0.35 : 1;
+          return (
+            <g key={r.id} style={{ cursor: 'pointer', transition: 'opacity 0.3s ease' }}
+              onMouseEnter={() => setHovered(r.id)}
+              onMouseLeave={() => setHovered(null)}
+              onClick={() => handleSelect(r.id)}
+              opacity={opacity}
+            >
+              <path
+                d={r.path}
+                fill={getFill(r.id, r.zone)}
+                stroke={getGlow(r.zone)}
+                strokeWidth={hovered === r.id || isSelected ? 2.2 : 1.2}
+                strokeLinejoin="round"
+                style={{ transition: 'all 0.3s ease' }}
+                filter={hovered === r.id || isSelected ? 'url(#map-glow-strong)' : undefined}
+              />
+              {/* Threat count badge */}
+              {(zoneCount[r.zone] || 0) > 0 && (
+                <text
+                  x={r.cx} y={r.cy}
+                  textAnchor="middle" dominantBaseline="middle"
+                  fill="#ceff1a" fontSize="11" fontWeight="700"
+                  opacity="0.95"
+                  style={{ pointerEvents: 'none', textShadow: '0 0 6px #000' }}
+                >
+                  {zoneCount[r.zone]}
+                </text>
+              )}
+            </g>
+          );
+        })}
 
         {/* City dots */}
         {CITIES.map(city => (

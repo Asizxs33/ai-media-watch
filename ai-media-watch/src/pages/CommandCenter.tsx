@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { SidebarLayout } from '../components/layout/SidebarLayout';
 import { useAppStore } from '../store/useAppStore';
 import { RiskBadge, getCategoryLabel } from '../components/ui/RiskBadge';
+import { KazakhstanMap } from '../components/KazakhstanMap';
 import type { Region, Category } from '../types';
 
 // Coordinates for Kazakhstan cities/regions (in SVG viewBox 800x480)
@@ -458,140 +459,18 @@ export default function CommandCenter() {
             </div>
 
             {/* SVG Interactive Map */}
-            <div className="flex-1 flex items-center justify-center relative select-none">
-              <svg
-                viewBox="0 0 800 480"
-                className="w-full h-auto max-h-[420px]"
-                style={{
-                  filter: 'drop-shadow(0 12px 24px rgba(0,0,0,0.4))',
-                }}
-              >
-                {/* SVG Definitions */}
-                <defs>
-                  <pattern id="gridPattern" width="20" height="20" patternUnits="userSpaceOnUse">
-                    <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(255,255,255,0.025)" strokeWidth="1" />
-                  </pattern>
-                  <radialGradient id="mapPulseGrad" cx="50%" cy="50%" r="50%">
-                    <stop offset="0%" stopColor="#ceff1a" stopOpacity="0.15" />
-                    <stop offset="100%" stopColor="#ceff1a" stopOpacity="0" />
-                  </radialGradient>
-                </defs>
-
-                {/* Stylized Kazakhstan Border (Polygon) */}
-                <polygon
-                  points="120,90 180,50 280,70 360,50 450,40 540,60 630,95 700,105 780,180 790,250 740,300 660,330 630,390 550,390 480,410 400,380 340,310 240,290 140,330 60,340 70,250 80,180"
-                  fill="url(#gridPattern)"
-                  stroke="rgba(206,255,26,0.25)"
-                  strokeWidth="2.5"
-                  className="transition-all duration-500"
-                />
-
-                {/* Regional boundaries (decorative visual network lines inside map) */}
-                <line x1="380" y1="90" x2="480" y2="150" stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
-                <line x1="480" y1="150" x2="620" y2="370" stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
-                <line x1="480" y1="150" x2="430" y2="380" stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
-                <line x1="180" y1="220" x2="480" y2="150" stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
-                <line x1="480" y1="150" x2="700" y2="190" stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
-                <line x1="480" y1="150" x2="530" y2="220" stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
-
-                {/* Region Nodes */}
-                {REGION_NODES.map((node) => {
-                  const stats = getRegionStats(node.id);
-                  const isFiltered = selectedRegion !== 'all' && selectedRegion !== node.id;
-                  
-                  // Threat level color
-                  let color = '#46e08a'; // safe
-                  if (stats.threatCount > 0) {
-                    color = stats.avgRisk >= 70 ? '#ff5640' : '#ffb020';
+            <div className="flex-1 flex items-center justify-center relative select-none w-full p-4">
+              <KazakhstanMap
+                selectedRegion={selectedRegion}
+                onSelectRegion={(reg) => {
+                  setSelectedRegion(reg);
+                  if (reg !== 'all') {
+                    announceRegion(reg);
+                    const node = REGION_NODES.find((n) => n.id === reg);
+                    setCliLogs((prev) => [...prev, `SYSTEM: Выбран регион: ${node?.label || reg}`]);
                   }
-
-                  const isActive = selectedRegion === node.id;
-
-                  return (
-                    <g
-                      key={node.id}
-                      className="cursor-pointer group"
-                      onClick={() => {
-                        setSelectedRegion(node.id);
-                        announceRegion(node.id);
-                        setCliLogs((prev) => [...prev, `SYSTEM: Выбран регион: ${node.label}`]);
-                      }}
-                      opacity={isFiltered ? 0.35 : 1}
-                    >
-                      {/* Pulse circle for threats */}
-                      {stats.threatCount > 0 && (
-                        <circle
-                          cx={node.x}
-                          cy={node.y}
-                          r={isActive ? 28 : 20}
-                          fill="none"
-                          stroke={color}
-                          strokeWidth="1"
-                          className="animate-ping"
-                          style={{ animationDuration: stats.avgRisk >= 70 ? '1.5s' : '2.5s' }}
-                          opacity={0.4}
-                        />
-                      )}
-
-                      {/* Interactive Hover Area */}
-                      <circle
-                        cx={node.x}
-                        cy={node.y}
-                        r={26}
-                        fill="transparent"
-                        className="group-hover:fill-white/5 transition-colors"
-                      />
-
-                      {/* Main Node Point */}
-                      <circle
-                        cx={node.x}
-                        cy={node.y}
-                        r={isActive ? 10 : 7}
-                        fill={color}
-                        className="transition-all duration-300"
-                        style={{
-                          filter: `drop-shadow(0 0 ${isActive ? '8px' : '4px'} ${color})`
-                        }}
-                      />
-
-                      {/* City Name Label */}
-                      <text
-                        x={node.x}
-                        y={node.y - 15}
-                        textAnchor="middle"
-                        className="font-code-sm text-[10px] font-bold"
-                        fill={isActive ? '#ceff1a' : '#f2f3f5'}
-                        style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}
-                      >
-                        {node.label}
-                      </text>
-
-                      {/* Brief Stat Badge above node */}
-                      {stats.count > 0 && (
-                        <g transform={`translate(${node.x + 10}, ${node.y - 30})`}>
-                          <rect
-                            width="14"
-                            height="12"
-                            rx="3"
-                            fill="rgba(0,0,0,0.6)"
-                            stroke="rgba(255,255,255,0.1)"
-                            strokeWidth="0.5"
-                          />
-                          <text
-                            x="7"
-                            y="9"
-                            textAnchor="middle"
-                            className="font-mono text-[8px] font-bold"
-                            fill={color}
-                          >
-                            {stats.count}
-                          </text>
-                        </g>
-                      )}
-                    </g>
-                  );
-                })}
-              </svg>
+                }}
+              />
 
               {/* Telemetry log Overlay (bottom corner of map) */}
               <div className="absolute bottom-3 left-3 bg-surface-container-low/95 border border-white/5 p-3 rounded-xl max-w-[280px] font-mono text-[10px] text-on-surface-variant pointer-events-none hidden md:block">
