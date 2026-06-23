@@ -4,7 +4,6 @@ import { motion } from 'framer-motion';
 import { SidebarLayout } from '../components/layout/SidebarLayout';
 import { useAppStore } from '../store/useAppStore';
 import { RiskBadge, getRiskColor, getCategoryLabel } from '../components/ui/RiskBadge';
-import { KazakhstanMap } from '../components/KazakhstanMap';
 import type { Platform, Category, PostStatus } from '../types';
 
 const PAGE_SIZE = 10;
@@ -36,18 +35,6 @@ export default function Dashboard() {
           </p>
         </div>
 
-        {/* Kazakhstan Map */}
-        <div className="glass-card p-4 mb-6 overflow-hidden">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-label-caps text-label-caps text-on-surface-variant tracking-widest">
-              КАРТА АКТИВНОСТИ — КАЗАХСТАН
-            </h2>
-            <span className="text-xs text-on-surface-variant/40 font-mono">
-              наведи на регион
-            </span>
-          </div>
-          <KazakhstanMap />
-        </div>
 
         {/* Filters */}
         <div className="glass-card p-4 mb-6 flex flex-wrap gap-3 items-center">
