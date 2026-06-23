@@ -200,7 +200,7 @@ const SEED_POSTS: Post[] = [
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
-      posts: SEED_POSTS,
+      posts: [],
       filters: defaultFilters,
       analyst: [],
 
@@ -267,11 +267,7 @@ export const useAppStore = create<AppState>()(
             requisites: Array.isArray(r.requisites) ? r.requisites : [],
           }));
 
-          // Replace all posts with DB data so all users see the same data
-          // Keep seed posts only if they don't overlap with DB
-          const dbIds = new Set(converted.map((p) => p.id));
-          const seedOnly = SEED_POSTS.filter((p) => !dbIds.has(p.id));
-          set({ posts: [...converted, ...seedOnly] });
+          set({ posts: converted });
         } catch {
           // silently fail — backend may be offline
         }
