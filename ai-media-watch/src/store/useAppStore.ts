@@ -217,10 +217,17 @@ export const useAppStore = create<AppState>()(
       setFilters: (f) => set((s) => ({ filters: { ...s.filters, ...f } })),
       resetFilters: () => set({ filters: defaultFilters }),
 
-      updatePostStatus: (id, status) =>
+      updatePostStatus: (id, status) => {
         set((s) => ({
           posts: s.posts.map((p) => (p.id === id ? { ...p, status } : p)),
-        })),
+        }));
+        // Sync to DB (fire and forget)
+        fetch(`${BACKEND}/api/posts/${encodeURIComponent(id)}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status }),
+        }).catch(() => {});
+      },
 
       pushAnalyst: (text, tone, postId) =>
         set((s) => ({

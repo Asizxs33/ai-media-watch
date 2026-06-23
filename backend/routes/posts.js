@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getPosts, getPostById, deletePost, getStats } from '../services/db.js';
+import { getPosts, getPostById, deletePost, getStats, updatePostStatus } from '../services/db.js';
 
 export const postsRouter = Router();
 
@@ -32,6 +32,20 @@ postsRouter.get('/:id', async (req, res) => {
     const post = await getPostById(req.params.id);
     if (!post) return res.status(404).json({ success: false, error: 'Not found' });
     res.json({ success: true, post });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// PATCH /api/posts/:id/status
+postsRouter.patch('/:id/status', async (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!['pending', 'reviewed', 'blocked'].includes(status)) {
+      return res.status(400).json({ success: false, error: 'Invalid status' });
+    }
+    await updatePostStatus(req.params.id, status);
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
