@@ -1,0 +1,20 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "ai-media-watch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 5173,
+      "autoPort": false,
+      "cwd": "ai-media-watch"
+    },
+    {
+      "name": "extension-popup",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "chrome-extension/popup", "-p", "5174", "--no-clipboard"],
+      "port": 5174,
+      "autoPort": false
+    }
+  ]
+}

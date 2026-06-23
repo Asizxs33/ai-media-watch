@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Generate Icons</title>
+<style>
+  body { background: #111; color: #ccc; font-family: sans-serif; padding: 24px; }
+  canvas { border: 1px solid #333; margin: 8px; }
+  .btn {
+    display: inline-block; margin: 4px; padding: 8px 16px;
+    background: #ceff1a; color: #000; border: none; border-radius: 8px;
+    cursor: pointer; font-weight: 700; font-size: 13px;
+  }
+</style>
+</head>
+<body>
+<h3 style="color:#ceff1a; margin-bottom:16px">🛡 AI Media Watch — Icon Generator</h3>
+<p style="margin-bottom:16px; font-size:13px">Нажми кнопку ниже, иконки скачаются автоматически как icon48.png и icon128.png</p>
+<button class="btn" onclick="generateAll()">Скачать иконки</button>
+<br><br>
+<canvas id="c48" width="48" height="48"></canvas>
+<canvas id="c128" width="128" height="128"></canvas>
+
+<script>
+function drawIcon(canvas) {
+  const size = canvas.width;
+  const ctx = canvas.getContext('2d');
+  const r = size * 0.18;
+
+  // Background
+  const bg = ctx.createLinearGradient(0, 0, size, size);
+  bg.addColorStop(0, '#1a1a1a');
+  bg.addColorStop(1, '#0e0e0e');
+  ctx.fillStyle = bg;
+  roundRect(ctx, 0, 0, size, size, r);
+  ctx.fill();
+
+  // Lime glow
+  const glow = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+  glow.addColorStop(0, 'rgba(206,255,26,0.12)');
+  glow.addColorStop(1, 'rgba(206,255,26,0)');
+  ctx.fillStyle = glow;
+  roundRect(ctx, 0, 0, size, size, r);
+  ctx.fill();
+
+  // Shield
+  const cx = size / 2;
+  const cy = size / 2 - size * 0.04;
+  const sw = size * 0.52;
+  const sh = size * 0.58;
+
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - sh/2);
+  ctx.bezierCurveTo(cx + sw/2, cy - sh/2, cx + sw/2, cy, cx + sw/2, cy + sh*0.15);
+  ctx.bezierCurveTo(cx + sw/2, cy + sh*0.5, cx, cy + sh/2, cx, cy + sh/2);
+  ctx.bezierCurveTo(cx, cy + sh/2, cx - sw/2, cy + sh*0.5, cx - sw/2, cy + sh*0.15);
+  ctx.bezierCurveTo(cx - sw/2, cy, cx - sw/2, cy - sh/2, cx, cy - sh/2);
+  ctx.closePath();
+  ctx.fillStyle = '#ceff1a';
+  ctx.fill();
+
+  // Inner shield (dark)
+  const inset = size * 0.06;
+  const iw = sw - inset * 2;
+  const ih = sh - inset * 2;
+  const icy = cy - ih/2 + inset;
+  ctx.beginPath();
+  ctx.moveTo(cx, icy);
+  ctx.bezierCurveTo(cx + iw/2, icy, cx + iw/2, cy, cx + iw/2, cy + ih*0.12);
+  ctx.bezierCurveTo(cx + iw/2, cy + ih*0.45, cx, icy + ih, cx, icy + ih);
+  ctx.bezierCurveTo(cx, icy + ih, cx - iw/2, cy + ih*0.45, cx - iw/2, cy + ih*0.12);
+  ctx.bezierCurveTo(cx - iw/2, cy, cx - iw/2, icy, cx, icy);
+  ctx.closePath();
+  ctx.fillStyle = '#141414';
+  ctx.fill();
+
+  // Check mark
+  const ck = size * 0.12;
+  ctx.strokeStyle = '#ceff1a';
+  ctx.lineWidth = size * 0.07;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx - ck, cy + ck * 0.1);
+  ctx.lineTo(cx - ck * 0.1, cy + ck * 0.9);
+  ctx.lineTo(cx + ck, cy - ck * 0.5);
+  ctx.stroke();
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function download(canvas, name) {
+  const a = document.createElement('a');
+  a.download = name;
+  a.href = canvas.toDataURL('image/png');
+  a.click();
+}
+
+function generateAll() {
+  const c48 = document.getElementById('c48');
+  const c128 = document.getElementById('c128');
+  drawIcon(c48);
+  drawIcon(c128);
+  setTimeout(() => {
+    download(c48, 'icon48.png');
+    setTimeout(() => download(c128, 'icon128.png'), 300);
+  }, 100);
+}
+
+// Draw preview on load
+window.onload = () => {
+  drawIcon(document.getElementById('c48'));
+  drawIcon(document.getElementById('c128'));
+};
+</script>
+</body>
+</html>

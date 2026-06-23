@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Media Watch</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      width: 340px;
+      background: #0e0e0e;
+      color: #e8e8e8;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      font-size: 13px;
+      overflow-x: hidden;
+    }
+
+    /* Header */
+    .header {
+      padding: 18px 18px 14px;
+      border-bottom: 1px solid #1e1e1e;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .logo {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .logo-icon {
+      width: 28px; height: 28px;
+      background: #ceff1a;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+    .logo-text {
+      font-weight: 700; font-size: 13px; color: #fff;
+      line-height: 1.2;
+    }
+    .logo-sub {
+      font-size: 10px; color: #555; font-weight: 400;
+    }
+
+    /* Toggle */
+    .toggle-wrap {
+      display: flex; align-items: center; gap: 6px;
+    }
+    .toggle-label { font-size: 11px; color: #555; }
+    .toggle {
+      position: relative; width: 36px; height: 20px;
+      cursor: pointer;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-track {
+      position: absolute; inset: 0;
+      background: #252525; border-radius: 100px;
+      transition: background 0.2s;
+    }
+    .toggle input:checked + .toggle-track { background: #ceff1a; }
+    .toggle-thumb {
+      position: absolute; top: 3px; left: 3px;
+      width: 14px; height: 14px;
+      background: #fff; border-radius: 50%;
+      transition: transform 0.2s, background 0.2s;
+      pointer-events: none;
+    }
+    .toggle input:checked ~ .toggle-thumb {
+      transform: translateX(16px);
+      background: #0a0a0a;
+    }
+
+    /* Status */
+    .status-bar {
+      padding: 10px 18px;
+      background: #0a0a0a;
+      border-bottom: 1px solid #1a1a1a;
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px;
+    }
+    .status-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #333; flex-shrink: 0;
+    }
+    .status-dot.ok { background: #22c55e; }
+    .status-dot.err { background: #ef4444; }
+    .status-dot.loading { background: #f59e0b; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .status-text { color: #555; }
+
+    /* Stats section */
+    .section { padding: 14px 18px; border-bottom: 1px solid #1a1a1a; }
+    .section-title {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: #444; margin-bottom: 10px;
+    }
+
+    /* Platform rows */
+    .platform-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 0;
+      border-bottom: 1px solid #161616;
+    }
+    .platform-row:last-child { border-bottom: none; }
+    .p-icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
+    .p-name { color: #aaa; flex: 1; font-size: 12px; }
+    .p-time { color: #666; font-size: 11px; min-width: 40px; text-align: right; }
+    .p-blocked {
+      background: rgba(239,68,68,0.12);
+      color: #f87171;
+      padding: 2px 7px; border-radius: 100px;
+      font-size: 10px; font-weight: 700;
+      min-width: 28px; text-align: center;
+      display: none;
+    }
+    .p-blocked.visible { display: block; }
+
+    /* Total blocked */
+    .blocked-total {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 12px;
+      background: rgba(239,68,68,0.06);
+      border: 1px solid rgba(239,68,68,0.15);
+      border-radius: 10px;
+    }
+    .bt-icon { font-size: 18px; }
+    .bt-text { flex: 1; }
+    .bt-label { color: #555; font-size: 10px; }
+    .bt-value { color: #f87171; font-size: 18px; font-weight: 800; }
+
+    /* Settings */
+    .field { margin-bottom: 12px; }
+    .field:last-child { margin-bottom: 0; }
+    .field-label {
+      font-size: 11px; color: #555; margin-bottom: 5px; display: block;
+    }
+    .field input[type="text"], .field input[type="url"] {
+      width: 100%;
+      background: #141414; border: 1px solid #252525;
+      color: #e8e8e8; border-radius: 8px;
+      padding: 8px 10px; font-size: 12px;
+      outline: none; transition: border-color 0.15s;
+      font-family: inherit;
+    }
+    .field input:focus { border-color: #ceff1a44; }
+
+    /* Time limit rows */
+    .limit-row {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+    }
+    .limit-row:last-child { margin-bottom: 0; }
+    .limit-platform { color: #777; font-size: 12px; flex: 1; }
+    .limit-input {
+      width: 60px;
+      background: #141414; border: 1px solid #252525;
+      color: #e8e8e8; border-radius: 8px;
+      padding: 6px 8px; font-size: 12px;
+      text-align: center; outline: none;
+      font-family: inherit;
+      transition: border-color 0.15s;
+    }
+    .limit-input:focus { border-color: #ceff1a44; }
+    .limit-unit { color: #444; font-size: 11px; }
+
+    /* Threshold slider */
+    .slider-row {
+      display: flex; align-items: center; gap: 10px;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      flex: 1; height: 4px;
+      background: #252525; border-radius: 100px; outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px;
+      background: #ceff1a; border-radius: 50%; cursor: pointer;
+    }
+    .slider-val { color: #fff; font-weight: 700; font-size: 12px; min-width: 30px; }
+
+    /* Save button */
+    .save-btn {
+      width: 100%;
+      background: #ceff1a; color: #0a0a0a;
+      border: none; border-radius: 10px; padding: 10px;
+      font-size: 13px; font-weight: 700; cursor: pointer;
+      margin-top: 14px; transition: background 0.15s;
+      font-family: inherit;
+    }
+    .save-btn:hover { background: #d8ff40; }
+    .save-btn:active { background: #b8e600; }
+
+    /* Tabs */
+    .tabs {
+      display: flex; padding: 0 18px; gap: 4px;
+      border-bottom: 1px solid #1a1a1a; background: #0a0a0a;
+    }
+    .tab {
+      padding: 10px 12px; font-size: 11px; font-weight: 600;
+      color: #444; cursor: pointer; border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+      letter-spacing: 0.04em; text-transform: uppercase;
+    }
+    .tab.active { color: #ceff1a; border-bottom-color: #ceff1a; }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* Footer */
+    .footer {
+      padding: 10px 18px;
+      border-top: 1px solid #1a1a1a;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .footer-logo { font-size: 10px; color: #333; font-weight: 700; letter-spacing: 0.06em; }
+    .footer-link { font-size: 10px; color: #333; text-decoration: none; }
+    .footer-link:hover { color: #555; }
+
+    /* Saved toast */
+    .toast {
+      position: fixed; bottom: 48px; left: 50%;
+      transform: translateX(-50%);
+      background: #1a1a1a; border: 1px solid #ceff1a33;
+      color: #ceff1a; padding: 7px 16px;
+      border-radius: 100px; font-size: 12px; font-weight: 600;
+      opacity: 0; transition: opacity 0.2s;
+      pointer-events: none; white-space: nowrap;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo">
+      <div class="logo-icon">🛡</div>
+      <div>
+        <div class="logo-text">AI Media Watch</div>
+        <div class="logo-sub">Защита от мошенничества</div>
+      </div>
+    </div>
+    <label class="toggle-wrap">
+      <span class="toggle-label" id="toggle-lbl">ВКЛ</span>
+      <label class="toggle">
+        <input type="checkbox" id="main-toggle" checked>
+        <div class="toggle-track"></div>
+        <div class="toggle-thumb"></div>
+      </label>
+    </label>
+  </div>
+
+  <!-- Status bar -->
+  <div class="status-bar">
+    <div class="status-dot loading" id="status-dot"></div>
+    <span class="status-text" id="status-text">Проверка подключения…</span>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" data-tab="stats">Статистика</div>
+    <div class="tab" data-tab="settings">Настройки</div>
+  </div>
+
+  <!-- Stats tab -->
+  <div class="tab-panel active" id="tab-stats">
+    <div class="section">
+      <div class="section-title">Сегодня заблокировано</div>
+      <div class="blocked-total">
+        <div class="bt-icon">🚨</div>
+        <div class="bt-text">
+          <div class="bt-label">Мошеннических видео</div>
+          <div class="bt-value" id="total-blocked">0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Время сегодня</div>
+      <div class="platform-row">
+        <span class="p-icon">▶</span>
+        <span class="p-name">YouTube</span>
+        <span class="p-time" id="time-youtube">0 мин</span>
+        <span class="p-blocked" id="blocked-youtube">0</span>
+      </div>
+      <div class="platform-row">
+        <span class="p-icon">♪</span>
+        <span class="p-name">TikTok</span>
+        <span class="p-time" id="time-tiktok">0 мин</span>
+        <span class="p-blocked" id="blocked-tiktok">0</span>
+      </div>
+      <div class="platform-row">
+        <span class="p-icon">◈</span>
+        <span class="p-name">Instagram</span>
+        <span class="p-time" id="time-instagram">0 мин</span>
+        <span class="p-blocked" id="blocked-instagram">0</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings tab -->
+  <div class="tab-panel" id="tab-settings">
+    <div class="section">
+      <div class="section-title">Сервер анализа</div>
+      <div class="field">
+        <label class="field-label">URL бэкенда</label>
+        <input type="text" id="backend-url" placeholder="http://localhost:3001">
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Чувствительность</div>
+      <div class="field">
+        <label class="field-label">Порог блокировки (риск %)</label>
+        <div class="slider-row">
+          <input type="range" id="threshold-slider" min="40" max="90" step="5" value="65">
+          <span class="slider-val" id="threshold-val">65%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">
+        Лимиты времени &nbsp;
+        <label class="toggle-wrap" style="display:inline-flex; gap:6px; vertical-align:middle">
+          <label class="toggle" style="width:30px; height:16px">
+            <input type="checkbox" id="limits-toggle">
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb" style="width:10px; height:10px; top:3px; left:3px"></div>
+          </label>
+        </label>
+      </div>
+      <div id="limits-fields">
+        <div class="limit-row">
+          <span class="limit-platform">▶ YouTube</span>
+          <input class="limit-input" type="number" id="limit-youtube" min="5" max="480" value="60">
+          <span class="limit-unit">мин/день</span>
+        </div>
+        <div class="limit-row">
+          <span class="limit-platform">♪ TikTok</span>
+          <input class="limit-input" type="number" id="limit-tiktok" min="5" max="480" value="30">
+          <span class="limit-unit">мин/день</span>
+        </div>
+        <div class="limit-row">
+          <span class="limit-platform">◈ Instagram</span>
+          <input class="limit-input" type="number" id="limit-instagram" min="5" max="480" value="30">
+          <span class="limit-unit">мин/день</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <button class="save-btn" id="save-btn">Сохранить настройки</button>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <span class="footer-logo">AI MEDIA WATCH</span>
+    <span style="color:#333; font-size:10px">v1.0</span>
+  </div>
+
+  <div class="toast" id="toast">Сохранено ✓</div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
