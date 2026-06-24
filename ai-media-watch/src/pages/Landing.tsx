@@ -129,7 +129,7 @@ export default function Landing() {
       {/* ══ NAV ══ */}
       <nav className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-5 md:px-8 py-4 bg-background/70 backdrop-blur-xl border-b border-white/[0.06]">
         <Link to="/" className="flex items-center gap-2.5">
-          <img src="/logo.png" alt="Spectra AI" width={48} height={48} style={{ filter: 'brightness(1.6) saturate(1.3)' }} />
+          <img src="/logo.png" alt="Spectra AI" width={48} height={48} style={{ filter: 'brightness(1.05) saturate(2.5) hue-rotate(25deg)' }} />
           <span className="num-display text-base">SPECTRA <span style={{ color: '#ceff1a', textShadow: '0 0 12px #ceff1a99' }}>AI</span></span>
         </Link>
         <div className="hidden md:flex items-center gap-7 text-xs text-on-surface-variant tracking-widest uppercase font-code-sm">
