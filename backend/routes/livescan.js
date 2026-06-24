@@ -13,6 +13,10 @@ import { Router } from 'express';
 import { searchYoutube, searchTiktok } from '../services/search.js';
 import { classifyContent } from '../services/classifier.js';
 import { savePost } from '../services/db.js';
+import { transcribeFromUrl } from '../services/transcriber.js';
+
+// Transcribe only if initial risk score is above this threshold
+const TRANSCRIBE_RISK_THRESHOLD = 60;
 
 export const livescanRouter = Router();
 
@@ -58,14 +62,34 @@ async function runScan({ keywords, platforms, limit }, emit, getAborted) {
           try {
             const text = [video.title, video.description, video.tags.map((t) => `#${t}`).join(' ')]
               .filter(Boolean).join('\n');
-            const cls = await classifyContent({
+
+            // Step 1: fast text classification
+            const clsText = await classifyContent({
               platform: 'youtube', username: video.uploader, caption: video.title, scrapedText: text,
             });
+
+            // Step 2: if suspicious — transcribe audio and re-classify
+            let cls = clsText;
+            let transcript = '';
+            if (clsText.riskScore >= TRANSCRIBE_RISK_THRESHOLD) {
+              emit('status', { message: `Транскрибирую аудио: ${video.title.slice(0, 50)}...` });
+              try {
+                transcript = await transcribeFromUrl(video.url) ?? '';
+                if (transcript) {
+                  cls = await classifyContent({
+                    platform: 'youtube', username: video.uploader,
+                    caption: video.title, scrapedText: text, transcript,
+                  });
+                }
+              } catch { /* transcript failure is non-fatal */ }
+            }
+
             found++;
             const ytResult = {
               id: `yt-${video.id}`, url: video.url, platform: 'youtube',
               username: video.uploader, title: video.title, thumbnail: video.thumbnail,
-              viewCount: video.viewCount, duration: video.duration, keyword, ...cls,
+              viewCount: video.viewCount, duration: video.duration, keyword,
+              transcript: transcript.slice(0, 1000), ...cls,
             };
             emit('result', ytResult);
             savePost({ ...ytResult, caption: video.title }).catch(() => {});
@@ -96,14 +120,34 @@ async function runScan({ keywords, platforms, limit }, emit, getAborted) {
           try {
             const text = [video.description, video.tags.map((t) => `#${t}`).join(' ')]
               .filter(Boolean).join('\n');
-            const cls = await classifyContent({
+
+            // Step 1: fast text classification
+            const clsText = await classifyContent({
               platform: 'tiktok', username: video.uploader, caption: video.description, scrapedText: text,
             });
+
+            // Step 2: if suspicious — transcribe and re-classify
+            let cls = clsText;
+            let transcript = '';
+            if (clsText.riskScore >= TRANSCRIBE_RISK_THRESHOLD) {
+              emit('status', { message: `Транскрибирую TikTok: ${(video.description || '').slice(0, 40)}...` });
+              try {
+                transcript = await transcribeFromUrl(video.url) ?? '';
+                if (transcript) {
+                  cls = await classifyContent({
+                    platform: 'tiktok', username: video.uploader,
+                    caption: video.description, scrapedText: text, transcript,
+                  });
+                }
+              } catch { /* non-fatal */ }
+            }
+
             found++;
             const ttResult = {
               id: `tt-${video.id}`, url: video.url, platform: 'tiktok',
               username: video.uploader, title: video.title, thumbnail: video.thumbnail,
-              viewCount: video.viewCount, keyword, ...cls,
+              viewCount: video.viewCount, keyword,
+              transcript: transcript.slice(0, 1000), ...cls,
             };
             emit('result', ttResult);
             savePost({ ...ttResult, caption: video.description || video.title }).catch(() => {});
