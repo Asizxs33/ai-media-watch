@@ -21,7 +21,7 @@ export function Sidebar() {
           <img src="/logo.png" alt="Spectra AI" width={52} height={52} style={{ filter: 'brightness(1.6) saturate(1.3)' }} />
         </div>
         <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap overflow-hidden">
-          <p className="num-display text-on-surface text-sm">SPECTRA AI</p>
+          <p className="num-display text-on-surface text-sm">SPECTRA <span style={{ color: '#ceff1a', textShadow: '0 0 10px #ceff1a99' }}>AI</span></p>
           <p className="text-on-surface-variant text-[10px] font-code-sm tracking-wider">FRAUD INTELLIGENCE</p>
         </div>
       </div>
