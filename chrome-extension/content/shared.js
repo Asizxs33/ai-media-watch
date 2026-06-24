@@ -184,7 +184,7 @@
 
     showTimeBanner(platform, minutes) {
       document.getElementById('amw-time-banner')?.remove();
-      const names = { youtube: 'YouTube', tiktok: 'TikTok', instagram: 'Instagram' };
+      const names = { youtube: 'YouTube', tiktok: 'TikTok', instagram: 'Instagram', twitter: 'Twitter/X', facebook: 'Facebook', vk: 'ВКонтакте', telegram: 'Telegram', ok: 'OK.ru' };
       const el = document.createElement('div');
       el.id = 'amw-time-banner';
       el.innerHTML = `
@@ -199,7 +199,7 @@
 
     showLimitOverlay(platform, limit) {
       if (document.getElementById('amw-limit-overlay')) return;
-      const names = { youtube: 'YouTube', tiktok: 'TikTok', instagram: 'Instagram' };
+      const names = { youtube: 'YouTube', tiktok: 'TikTok', instagram: 'Instagram', twitter: 'Twitter/X', facebook: 'Facebook', vk: 'ВКонтакте', telegram: 'Telegram', ok: 'OK.ru' };
       const el = document.createElement('div');
       el.id = 'amw-limit-overlay';
       el.innerHTML = `

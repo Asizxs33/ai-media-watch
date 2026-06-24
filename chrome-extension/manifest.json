@@ -1,13 +1,21 @@
 {
   "manifest_version": 3,
   "name": "Spectra AI — Защита от мошенничества",
-  "version": "1.0.0",
-  "description": "Обнаруживает мошеннический контент в YouTube, TikTok и Instagram. Самоконтроль времени.",
+  "version": "2.0.0",
+  "description": "Сканирует видео, аудио и текст в YouTube, TikTok, Instagram, ВКонтакте, Facebook, Twitter/X, Telegram и OK.ru. ИИ-защита от мошенников.",
   "permissions": ["storage", "alarms"],
   "host_permissions": [
     "https://*.youtube.com/*",
     "https://*.tiktok.com/*",
     "https://*.instagram.com/*",
+    "https://*.twitter.com/*",
+    "https://*.x.com/*",
+    "https://*.facebook.com/*",
+    "https://*.fb.com/*",
+    "https://*.vk.com/*",
+    "https://*.vk.ru/*",
+    "https://web.telegram.org/*",
+    "https://*.ok.ru/*",
     "http://localhost:3001/*",
     "https://*.trycloudflare.com/*"
   ],
@@ -28,6 +36,31 @@
     {
       "matches": ["https://*.instagram.com/*"],
       "js": ["content/shared.js", "content/instagram.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://*.twitter.com/*", "https://*.x.com/*"],
+      "js": ["content/shared.js", "content/twitter.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://*.facebook.com/*", "https://*.fb.com/*"],
+      "js": ["content/shared.js", "content/facebook.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://*.vk.com/*", "https://*.vk.ru/*"],
+      "js": ["content/shared.js", "content/vk.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://web.telegram.org/*"],
+      "js": ["content/shared.js", "content/telegram.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://*.ok.ru/*"],
+      "js": ["content/shared.js", "content/ok.js"],
       "run_at": "document_idle"
     }
   ],

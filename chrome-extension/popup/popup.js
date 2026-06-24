@@ -63,14 +63,17 @@
     document.getElementById('limit-tiktok').value = settings.timeLimits?.tiktok ?? 30;
     document.getElementById('limit-instagram').value = settings.timeLimits?.instagram ?? 30;
 
-    // Time stats
-    ['youtube', 'tiktok', 'instagram'].forEach(p => {
-      document.getElementById('time-' + p).textContent = fmtMinutes(timeToday[p] || 0);
+    // Time stats — all platforms
+    ['youtube', 'tiktok', 'instagram', 'twitter', 'facebook', 'vk', 'telegram', 'ok'].forEach(p => {
+      const timeEl = document.getElementById('time-' + p);
+      if (timeEl) timeEl.textContent = fmtMinutes(timeToday[p] || 0);
 
       const blockedEl = document.getElementById('blocked-' + p);
-      const count = blockedToday[p] || 0;
-      blockedEl.textContent = count;
-      if (count > 0) blockedEl.classList.add('visible');
+      if (blockedEl) {
+        const count = blockedToday[p] || 0;
+        blockedEl.textContent = count;
+        if (count > 0) blockedEl.classList.add('visible');
+      }
     });
 
     // Total blocked

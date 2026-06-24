@@ -57,6 +57,55 @@ analyzeRouter.post('/text', async (req, res) => {
 });
 
 /**
+ * POST /api/analyze/deep
+ * Extension deep analysis: DOM text (fast) + optional audio transcription (if risk >= 45).
+ * Body: { url, caption, username, platform }
+ */
+analyzeRouter.post('/deep', async (req, res) => {
+  const { url, caption = '', username = '', platform = 'unknown' } = req.body;
+
+  if (!caption?.trim() && !url?.trim()) {
+    return res.status(400).json({ success: false, error: 'caption или url обязателен' });
+  }
+
+  let transcript = '';
+  let audioAnalyzed = false;
+
+  // Step 1: Fast text classification
+  let result;
+  try {
+    result = await classifyContent({ caption, username, platform });
+  } catch (err) {
+    console.error('[/deep] classify error:', err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+
+  // Step 2: If URL provided and text risk >= 45%, try audio transcription
+  const AUDIO_THRESHOLD = 45;
+  if (url && (result.riskScore ?? 0) >= AUDIO_THRESHOLD) {
+    try {
+      console.log(`[/deep] Risk ${result.riskScore}% — transcribing ${url}`);
+      transcript = await transcribeFromUrl(url) ?? '';
+      if (transcript) {
+        audioAnalyzed = true;
+        result = await classifyContent({ caption, username, platform, transcript });
+        console.log(`[/deep] Audio re-classify → ${result.riskScore}%`);
+      }
+    } catch (err) {
+      console.warn('[/deep] Audio failed (non-fatal):', err.message);
+    }
+  }
+
+  return res.json({
+    success: true,
+    source: 'extension-deep',
+    audioAnalyzed,
+    transcript: transcript.slice(0, 500),
+    ...result,
+  });
+});
+
+/**
  * POST /api/analyze/url
  * Analyze a social media post by URL.
  * Pipeline: scrape page text → (try) Whisper transcription → Claude classification

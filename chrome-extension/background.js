@@ -1,6 +1,6 @@
 /**
- * Spectra AI — Background Service Worker
- * Handles API calls, time tracking, settings storage.
+ * Spectra AI — Background Service Worker v2.0
+ * Deep analysis: DOM text (fast) + audio transcription via backend yt-dlp+Whisper
  */
 
 const DEFAULT_SETTINGS = {
@@ -8,7 +8,7 @@ const DEFAULT_SETTINGS = {
   enabled: true,
   blockThreshold: 0.65,
   timeLimitsEnabled: false,
-  timeLimits: { youtube: 60, tiktok: 30, instagram: 30 },
+  timeLimits: { youtube: 60, tiktok: 30, instagram: 30, twitter: 60, facebook: 60, vk: 60, telegram: 120, ok: 60 },
 };
 
 let _settingsCache = null;
@@ -42,7 +42,6 @@ async function addTime(platform, seconds) {
   if (!timeData[date][platform]) timeData[date][platform] = 0;
   timeData[date][platform] += seconds;
 
-  // Keep only last 7 days
   const keys = Object.keys(timeData).sort();
   while (keys.length > 7) delete timeData[keys.shift()];
 
@@ -71,19 +70,28 @@ async function getTodayBlocked() {
   return counts[todayKey()] || {};
 }
 
+// Platforms that support audio transcription via yt-dlp
+const AUDIO_PLATFORMS = new Set(['youtube', 'tiktok', 'instagram', 'twitter', 'facebook', 'vk', 'ok']);
+
 async function classifyContent(payload) {
   const settings = await getSettings();
   if (!settings.enabled) return null;
 
-  const response = await fetch(`${settings.backendUrl}/api/analyze/text`, {
+  const supportsAudio = AUDIO_PLATFORMS.has(payload.platform) && !!payload.url;
+  const endpoint = supportsAudio ? '/api/analyze/deep' : '/api/analyze/text';
+
+  // Deep analysis can take up to 45s (yt-dlp + Whisper)
+  const timeout = supportsAudio ? 45000 : 15000;
+
+  const body = supportsAudio
+    ? { url: payload.url, caption: payload.text || '', username: payload.username || '', platform: payload.platform || 'unknown' }
+    : { caption: payload.text || '', username: payload.username || '', platform: payload.platform || 'unknown' };
+
+  const response = await fetch(`${settings.backendUrl}${endpoint}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      platform: payload.platform || 'unknown',
-      caption: payload.text || '',
-      username: payload.username || '',
-    }),
-    signal: AbortSignal.timeout(20000),
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(timeout),
   });
 
   if (!response.ok) throw new Error(`Backend ${response.status}`);
