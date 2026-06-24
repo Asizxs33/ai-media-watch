@@ -172,8 +172,24 @@
       document.body.appendChild(overlay);
 
       document.getElementById('amw-back-btn').addEventListener('click', () => {
+        // Save this URL to permanent blocklist
+        chrome.runtime.sendMessage({ type: 'BLOCK_URL', url: location.href });
         overlay.remove();
-        history.back();
+        // Replace current history entry so forward button is disabled
+        const homes = {
+          'youtube.com': 'https://www.youtube.com/',
+          'tiktok.com': 'https://www.tiktok.com/',
+          'instagram.com': 'https://www.instagram.com/',
+          'twitter.com': 'https://twitter.com/',
+          'x.com': 'https://x.com/',
+          'facebook.com': 'https://www.facebook.com/',
+          'vk.com': 'https://vk.com/',
+          'vk.ru': 'https://vk.ru/',
+          'telegram.org': 'https://web.telegram.org/',
+          'ok.ru': 'https://ok.ru/',
+        };
+        const home = Object.entries(homes).find(([d]) => location.hostname.includes(d))?.[1] || location.origin + '/';
+        location.replace(home);
       });
       document.getElementById('amw-continue-btn').addEventListener('click', () => {
         overlay.remove();
@@ -215,6 +231,15 @@
       `;
       document.body.appendChild(el);
       document.getElementById('amw-limit-ok')?.addEventListener('click', () => el.remove());
+    },
+
+    // Check if this URL was previously blocked by user
+    async isBlocked(url) {
+      return new Promise(resolve => {
+        chrome.runtime.sendMessage({ type: 'CHECK_BLOCKED_URL', url }, r => {
+          resolve(r?.blocked ?? false);
+        });
+      });
     },
 
     async classify(payload) {

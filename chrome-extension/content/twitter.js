@@ -30,8 +30,9 @@
     // Only individual tweet pages that may have video
     if (!url.match(/\/(status|i\/spaces)\/\d+/)) return;
     if (url === lastUrl) return;
-    if (window.AMW.classified.has(url)) return;
     lastUrl = url;
+    if (await window.AMW.isBlocked(url)) { location.replace('https://x.com/'); return; }
+    if (window.AMW.classified.has(url)) return;
     window.AMW.classified.add(url);
 
     await new Promise(r => setTimeout(r, 2500));

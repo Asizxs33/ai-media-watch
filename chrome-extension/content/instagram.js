@@ -33,6 +33,10 @@
     if (!url.includes('/p/') && !url.includes('/reel/')) return;
     lastUrl = url;
 
+    if (await window.AMW.isBlocked(url)) {
+      location.replace('https://www.instagram.com/');
+      return;
+    }
     if (window.AMW.classified.has(url)) return;
     window.AMW.classified.add(url);
 

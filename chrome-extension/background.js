@@ -113,6 +113,21 @@ async function classifyContent(payload) {
   return response.json();
 }
 
+async function blockUrl(url) {
+  const data = await chrome.storage.local.get('blockedUrls');
+  const blocked = data.blockedUrls || {};
+  blocked[url] = Date.now();
+  // Keep only last 7 days
+  const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  Object.keys(blocked).forEach(k => { if (blocked[k] < cutoff) delete blocked[k]; });
+  await chrome.storage.local.set({ blockedUrls: blocked });
+}
+
+async function isUrlBlocked(url) {
+  const data = await chrome.storage.local.get('blockedUrls');
+  return !!(data.blockedUrls || {})[url];
+}
+
 async function checkTimeLimit(platform) {
   const [settings, timeToday] = await Promise.all([getSettings(), getTodayTime()]);
   if (!settings.timeLimitsEnabled) return { exceeded: false };
@@ -165,6 +180,18 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       checkTimeLimit(msg.platform)
         .then(sendResponse)
         .catch(() => sendResponse({ exceeded: false }));
+      return true;
+
+    case 'BLOCK_URL':
+      blockUrl(msg.url)
+        .then(() => sendResponse({ ok: true }))
+        .catch(() => sendResponse({ ok: false }));
+      return true;
+
+    case 'CHECK_BLOCKED_URL':
+      isUrlBlocked(msg.url)
+        .then(blocked => sendResponse({ blocked }))
+        .catch(() => sendResponse({ blocked: false }));
       return true;
   }
 });

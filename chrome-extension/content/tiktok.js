@@ -34,6 +34,11 @@
     if (key === lastKey) return;
     lastKey = key;
 
+    // Redirect if previously blocked
+    if (await window.AMW.isBlocked(url)) {
+      location.replace('https://www.tiktok.com/');
+      return;
+    }
     if (window.AMW.classified.has(key)) return;
     window.AMW.classified.add(key);
 

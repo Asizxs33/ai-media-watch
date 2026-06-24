@@ -35,8 +35,9 @@
     if (url === lastUrl) return;
     const isMedia = VIDEO_PATHS.some(p => url.includes(p));
     if (!isMedia) return;
-    if (window.AMW.classified.has(url)) return;
     lastUrl = url;
+    if (await window.AMW.isBlocked(url)) { location.replace('https://vk.com/'); return; }
+    if (window.AMW.classified.has(url)) return;
     window.AMW.classified.add(url);
 
     await new Promise(r => setTimeout(r, 2000));

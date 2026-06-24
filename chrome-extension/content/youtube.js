@@ -32,6 +32,11 @@
 
   async function analyzeVideo(url) {
     if (!url.includes('/watch')) return;
+    // Immediately redirect if previously blocked
+    if (await window.AMW.isBlocked(url)) {
+      location.replace('https://www.youtube.com/');
+      return;
+    }
     if (window.AMW.classified.has(url)) return;
     window.AMW.classified.add(url);
 
