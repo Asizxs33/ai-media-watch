@@ -22,19 +22,22 @@
       document.querySelector('[class*="SpanUniqueId"]')?.textContent?.trim() ||
       '';
 
-    return { desc, user };
+    // Grab top comments — fraud often hides links/schemes there
+    const comments = Array.from(
+      document.querySelectorAll('[data-e2e="comment-level-1"] p, [class*="CommentText"] span, [class*="DivCommentContentContainer"] span')
+    ).slice(0, 8).map(el => el.textContent?.trim()).filter(Boolean).join(' | ');
+
+    return { desc, user, comments };
   }
 
   async function analyzeCurrentVideo() {
     const url = location.href;
-    // Use video ID from URL as key, or full URL for feed
     const videoIdMatch = url.match(/\/video\/(\d+)/);
     const key = videoIdMatch ? videoIdMatch[1] : url;
 
     if (key === lastKey) return;
     lastKey = key;
 
-    // Redirect if previously blocked
     if (await window.AMW.isBlocked(url)) {
       location.replace('https://www.tiktok.com/');
       return;
@@ -42,12 +45,13 @@
     if (window.AMW.classified.has(key)) return;
     window.AMW.classified.add(key);
 
-    await new Promise(r => setTimeout(r, 1500));
+    await new Promise(r => setTimeout(r, 2000));
 
-    const { desc, user } = extractVideo();
-    if (!desc) return;
+    const { desc, user, comments } = extractVideo();
+    // Combine all text; if still empty — URL-only analysis (backend will scrape)
+    const text = [desc, comments].filter(Boolean).join('\n').slice(0, 2500);
 
-    const result = await window.AMW.classifyDeep({ platform: PLATFORM, text: desc, username: user, url });
+    const result = await window.AMW.classifyDeep({ platform: PLATFORM, text, username: user, url });
     if (!result) return;
 
     if ((result.riskScore ?? 0) >= 0.65) {

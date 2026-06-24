@@ -27,12 +27,16 @@
       document.querySelector('#description yt-attributed-string')?.textContent?.trim() ||
       '';
 
-    return { title, channel, desc };
+    // Top comments — fraud often puts Telegram/WhatsApp links there
+    const comments = Array.from(
+      document.querySelectorAll('#comments #content-text')
+    ).slice(0, 6).map(el => el.textContent?.trim()).filter(Boolean).join(' | ');
+
+    return { title, channel, desc, comments };
   }
 
   async function analyzeVideo(url) {
     if (!url.includes('/watch')) return;
-    // Immediately redirect if previously blocked
     if (await window.AMW.isBlocked(url)) {
       location.replace('https://www.youtube.com/');
       return;
@@ -40,11 +44,10 @@
     if (window.AMW.classified.has(url)) return;
     window.AMW.classified.add(url);
 
-    // Wait for DOM to populate
-    await new Promise(r => setTimeout(r, 2500));
+    await new Promise(r => setTimeout(r, 3000));
 
-    const { title, channel, desc } = extractVideo();
-    const text = [title, desc].filter(Boolean).join('\n').slice(0, 3000);
+    const { title, channel, desc, comments } = extractVideo();
+    const text = [title, desc, comments].filter(Boolean).join('\n').slice(0, 3000);
     if (!text) return;
 
     const result = await window.AMW.classifyDeep({ platform: PLATFORM, text, username: channel, url });

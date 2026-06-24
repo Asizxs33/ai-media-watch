@@ -100,10 +100,24 @@ analyzeRouter.post('/deep', async (req, res) => {
   let transcript = '';
   let audioAnalyzed = false;
 
+  // Step 0: If caption is too short and URL provided, scrape page for more context
+  let fullCaption = caption;
+  if (url && (!caption || caption.length < 30)) {
+    try {
+      const scraped = await scrapePageText(url);
+      if (scraped?.text) {
+        fullCaption = [caption, scraped.text].filter(Boolean).join('\n').slice(0, 3000);
+        console.log(`[/deep] Scraped ${scraped.text.length} chars to supplement empty caption`);
+      }
+    } catch (e) {
+      console.warn('[/deep] Scrape fallback failed:', e.message);
+    }
+  }
+
   // Step 1: Fast text classification
   let result;
   try {
-    result = await classifyContent({ caption, username, platform });
+    result = await classifyContent({ caption: fullCaption, username, platform });
   } catch (err) {
     console.error('[/deep] classify error:', err.message);
     return res.status(500).json({ success: false, error: err.message });
