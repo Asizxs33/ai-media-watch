@@ -2,12 +2,13 @@ import { NavLink } from 'react-router-dom';
 
 const navItems = [
   { path: '/commandcenter', icon: 'settings_input_antenna', label: 'Командный центр' },
-  { path: '/livescanner', icon: 'sensors', label: 'Live Сканер' },
-  { path: '/scanner', icon: 'smart_toy', label: 'Анализ' },
-  { path: '/dashboard', icon: 'dashboard', label: 'Дашборд' },
-  { path: '/registry', icon: 'fingerprint', label: 'Реестр' },
-  { path: '/trends', icon: 'ssid_chart', label: 'Тренды' },
-  { path: '/stats', icon: 'monitoring', label: 'Статистика' },
+  { path: '/autoscanner',   icon: 'robot_2',               label: 'Авто-сканер' },
+  { path: '/livescanner',   icon: 'sensors',               label: 'Live Сканер' },
+  { path: '/scanner',       icon: 'smart_toy',             label: 'Анализ' },
+  { path: '/dashboard',     icon: 'dashboard',             label: 'Дашборд' },
+  { path: '/registry',      icon: 'fingerprint',           label: 'Реестр' },
+  { path: '/trends',        icon: 'ssid_chart',            label: 'Тренды' },
+  { path: '/stats',         icon: 'monitoring',            label: 'Статистика' },
 ];
 
 const sym = { fontVariationSettings: "'FILL' 0" };

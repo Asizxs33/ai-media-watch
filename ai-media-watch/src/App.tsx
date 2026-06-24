@@ -9,6 +9,7 @@ import Trends from './pages/Trends';
 import Stats from './pages/Stats';
 import Registry from './pages/Registry';
 import CommandCenter from './pages/CommandCenter';
+import AutonomousScanner from './pages/AutonomousScanner';
 import { AnalystDock } from './components/AnalystDock';
 import { useAppStore } from './store/useAppStore';
 
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="/commandcenter" element={<CommandCenter />} />
         <Route path="/scanner" element={<Scanner />} />
         <Route path="/livescanner" element={<LiveScanner />} />
+        <Route path="/autoscanner" element={<AutonomousScanner />} />
         <Route path="/post/:id" element={<PostDetail />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/trends" element={<Trends />} />
