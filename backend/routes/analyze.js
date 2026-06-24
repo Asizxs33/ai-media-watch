@@ -57,6 +57,35 @@ analyzeRouter.post('/text', async (req, res) => {
 });
 
 /**
+ * POST /api/analyze/report
+ * Save extension detection result to DB.
+ * Called when: (a) risk >= threshold, (b) user explicitly blocks a URL.
+ * Body: { url, platform, username, caption, riskScore, category, reason, schemeTypes, blocked }
+ */
+analyzeRouter.post('/report', async (req, res) => {
+  const { url, platform = 'unknown', username = '', caption = '',
+          riskScore = 0, category = 'safe', reason = '',
+          schemeTypes = [], blocked = false } = req.body;
+
+  if (!url) return res.status(400).json({ success: false, error: 'url обязателен' });
+
+  try {
+    const id = `ext-${Buffer.from(url).toString('base64').slice(0, 24)}-${Date.now()}`;
+    await savePost({
+      id, platform, username, caption: caption.slice(0, 500), url,
+      riskScore, category, reason,
+      schemeTypes: Array.isArray(schemeTypes) ? schemeTypes : [schemeTypes],
+      status: blocked ? 'blocked' : (riskScore >= 75 ? 'blocked' : 'pending'),
+      keyword: 'extension',
+    });
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('[/report]', err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
  * POST /api/analyze/deep
  * Extension deep analysis: DOM text (fast) + optional audio transcription (if risk >= 45).
  * Body: { url, caption, username, platform }

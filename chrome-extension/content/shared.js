@@ -140,6 +140,20 @@
     showWarning(result, platform) {
       if (document.getElementById('amw-fraud-overlay')) return;
 
+      // Auto-save detection to backend DB (fire and forget)
+      chrome.runtime.sendMessage({
+        type: 'REPORT_TO_DB',
+        payload: {
+          url: location.href,
+          platform,
+          riskScore: result.riskScore ?? 0,
+          category: result.category ?? 'unknown',
+          reason: result.reason ?? '',
+          schemeTypes: result.schemeTypes || [],
+          blocked: false,
+        },
+      });
+
       const score = result.riskScore ?? 0.7;
       const isHigh = score >= 0.75;
       const pct = Math.round(score * 100);
@@ -172,8 +186,20 @@
       document.body.appendChild(overlay);
 
       document.getElementById('amw-back-btn').addEventListener('click', () => {
-        // Save this URL to permanent blocklist
+        // Save to local blocklist + update DB status to 'blocked'
         chrome.runtime.sendMessage({ type: 'BLOCK_URL', url: location.href });
+        chrome.runtime.sendMessage({
+          type: 'REPORT_TO_DB',
+          payload: {
+            url: location.href,
+            platform,
+            riskScore: result.riskScore ?? 0,
+            category: result.category ?? 'unknown',
+            reason: result.reason ?? '',
+            schemeTypes: result.schemeTypes || [],
+            blocked: true,
+          },
+        });
         overlay.remove();
         // Replace current history entry so forward button is disabled
         const homes = {

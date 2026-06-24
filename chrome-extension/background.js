@@ -113,6 +113,18 @@ async function classifyContent(payload) {
   return response.json();
 }
 
+async function reportToDb(payload) {
+  const settings = await getSettings();
+  const response = await fetch(`${settings.backendUrl}/api/analyze/report`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!response.ok) throw new Error(`Backend ${response.status}`);
+  return response.json();
+}
+
 async function blockUrl(url) {
   const data = await chrome.storage.local.get('blockedUrls');
   const blocked = data.blockedUrls || {};
@@ -180,6 +192,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       checkTimeLimit(msg.platform)
         .then(sendResponse)
         .catch(() => sendResponse({ exceeded: false }));
+      return true;
+
+    case 'REPORT_TO_DB':
+      reportToDb(msg.payload)
+        .then(() => sendResponse({ ok: true }))
+        .catch(() => sendResponse({ ok: false }));
       return true;
 
     case 'BLOCK_URL':
