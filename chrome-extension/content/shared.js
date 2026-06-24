@@ -226,6 +226,49 @@
       });
     },
 
+    // Capture current video frame as JPEG base64
+    captureVideoFrame() {
+      try {
+        const video = document.querySelector('video');
+        if (!video || video.readyState < 2 || video.videoWidth === 0) return null;
+        const w = 480;
+        const h = Math.round(w * video.videoHeight / video.videoWidth) || 270;
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(video, 0, 0, w, h);
+        return canvas.toDataURL('image/jpeg', 0.82).split(',')[1];
+      } catch { return null; }
+    },
+
+    async classifyImage(imageBase64) {
+      return new Promise((resolve) => {
+        chrome.runtime.sendMessage({ type: 'CLASSIFY_IMAGE', imageBase64, mediaType: 'image/jpeg' }, (resp) => {
+          if (chrome.runtime.lastError || !resp?.ok) { resolve(null); return; }
+          resolve(resp.result);
+        });
+      });
+    },
+
+    // Run text+audio AND image analysis in parallel, return highest risk
+    async classifyDeep(payload) {
+      const imageBase64 = window.AMW.captureVideoFrame();
+      const jobs = [
+        window.AMW.classify(payload),
+        imageBase64 ? window.AMW.classifyImage(imageBase64) : Promise.resolve(null),
+      ];
+      const [textResult, imgResult] = await Promise.all(jobs);
+
+      if (!textResult && !imgResult) return null;
+      if (!textResult) return imgResult;
+      if (!imgResult) return textResult;
+
+      // Return the result with higher risk score
+      const tr = textResult.riskScore ?? 0;
+      const ir = imgResult.riskScore ?? 0;
+      if (ir > tr) return { ...imgResult, imageAnalyzed: true, textRiskScore: tr };
+      return { ...textResult, imageAnalyzed: !!imageBase64, imageRiskScore: ir };
+    },
+
     startTimeTracking(platform) {
       const MILESTONES = [15, 30, 60, 90, 120];
       const notified = new Set();

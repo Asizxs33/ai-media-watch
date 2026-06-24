@@ -42,7 +42,7 @@
     const text = [title, desc].filter(Boolean).join('\n').slice(0, 3000);
     if (!text) return;
 
-    const result = await window.AMW.classify({ platform: PLATFORM, text, username: channel, url });
+    const result = await window.AMW.classifyDeep({ platform: PLATFORM, text, username: channel, url });
     if (!result) return;
 
     if ((result.riskScore ?? 0) >= 0.65) {

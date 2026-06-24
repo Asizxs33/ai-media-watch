@@ -42,7 +42,7 @@
     const { desc, user } = extractVideo();
     if (!desc) return;
 
-    const result = await window.AMW.classify({ platform: PLATFORM, text: desc, username: user, url });
+    const result = await window.AMW.classifyDeep({ platform: PLATFORM, text: desc, username: user, url });
     if (!result) return;
 
     if ((result.riskScore ?? 0) >= 0.65) {

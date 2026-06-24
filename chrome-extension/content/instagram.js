@@ -41,7 +41,7 @@
     const { caption, user } = extractPost();
     if (!caption) return;
 
-    const result = await window.AMW.classify({ platform: PLATFORM, text: caption, username: user, url });
+    const result = await window.AMW.classifyDeep({ platform: PLATFORM, text: caption, username: user, url });
     if (!result) return;
 
     if ((result.riskScore ?? 0) >= 0.65) {

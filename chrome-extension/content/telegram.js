@@ -37,7 +37,7 @@
 
       if (!text || text.length < 5) return;
 
-      const result = await window.AMW.classify({ platform: PLATFORM, text, username: user, url: location.href });
+      const result = await window.AMW.classifyDeep({ platform: PLATFORM, text, username: user, url: location.href });
       if (!result) return;
       if ((result.riskScore ?? 0) >= 0.65) window.AMW.showWarning(result, PLATFORM);
     });
