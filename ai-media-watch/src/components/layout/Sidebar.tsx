@@ -18,7 +18,7 @@ export function Sidebar() {
       {/* Logo */}
       <div className="px-5 py-7 flex items-center gap-3 min-w-0 relative z-10">
         <div className="w-12 h-12 shrink-0 flex items-center justify-center">
-          <img src="/logo.png" alt="Spectra AI" width={52} height={52} />
+          <img src="/logo.png" alt="Spectra AI" width={52} height={52} style={{ filter: 'brightness(1.6) saturate(1.3)' }} />
         </div>
         <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap overflow-hidden">
           <p className="num-display text-on-surface text-sm">SPECTRA AI</p>
