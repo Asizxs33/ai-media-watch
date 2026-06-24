@@ -9,14 +9,14 @@
  *  4. Saves findings to DB; keeps last 50 detections in memory for /api/scanner/status
  */
 
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, statSync, mkdirSync } from 'node:fs';
-import { unlink } from 'node:fs/promises';
+import { unlink, readFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline';
 import { formatSegments } from './transcriber.js';
-import { classifyContent } from './classifier.js';
+import { classifyContent, classifyImage } from './classifier.js';
 import { savePost } from './db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -228,7 +228,6 @@ async function downloadVideoAudio(url) {
 // ── Transcribe local file ─────────────────────────────────────────────────────
 // transcribeLocal is NOT exported from transcriber.js (it's internal).
 // We re-use the same whisper_local.py via spawnSync here.
-import { spawnSync } from 'node:child_process';
 const WHISPER_SCRIPT = join(__dirname, 'whisper_local.py');
 
 function transcribeFile(audioPath) {
@@ -239,6 +238,60 @@ function transcribeFile(audioPath) {
   try {
     const p = JSON.parse(r.stdout.trim());
     return p.error ? null : (p.text ? p : null);
+  } catch { return null; }
+}
+
+/**
+ * Capture a single JPEG frame from a live stream using yt-dlp + ffmpeg.
+ * Returns base64 string or null.
+ */
+async function captureLiveFrame(url) {
+  const framePath = join(TMP_DIR, `frame_${Date.now()}.jpg`);
+  return new Promise((resolve) => {
+    // Use yt-dlp to get the direct stream URL, pipe one frame via ffmpeg
+    const ytproc = spawnYtDlp([url, '--get-url', '--quiet', '--no-warnings']);
+    let streamUrl = '';
+    ytproc.stdout.on('data', d => { streamUrl += d.toString(); });
+    ytproc.on('close', () => {
+      streamUrl = streamUrl.trim().split('\n')[0];
+      if (!streamUrl) return resolve(null);
+
+      const ff = spawn('ffmpeg', [
+        '-i', streamUrl, '-vframes', '1', '-q:v', '3', '-y', framePath,
+      ], { shell: false, windowsHide: true });
+
+      const timer = setTimeout(() => { killProcess(ff); resolve(null); }, 20_000);
+      ff.on('close', async () => {
+        clearTimeout(timer);
+        if (!existsSync(framePath)) return resolve(null);
+        try {
+          const buf = await readFile(framePath);
+          await unlink(framePath).catch(() => {});
+          resolve(buf.toString('base64'));
+        } catch { resolve(null); }
+      });
+    });
+    setTimeout(() => { killProcess(ytproc); }, 15_000);
+  });
+}
+
+/**
+ * Fetch a thumbnail URL and return its base64 content.
+ * Used as fallback visual analysis when no audio transcript is available.
+ */
+async function fetchThumbnail(thumbnailUrl) {
+  try {
+    const { default: https } = await import('node:https');
+    const { default: http  } = await import('node:http');
+    return await new Promise((resolve, reject) => {
+      const lib = thumbnailUrl.startsWith('https') ? https : http;
+      lib.get(thumbnailUrl, (res) => {
+        const chunks = [];
+        res.on('data', c => chunks.push(c));
+        res.on('end', () => resolve(Buffer.concat(chunks).toString('base64')));
+        res.on('error', reject);
+      }).on('error', reject);
+    });
   } catch { return null; }
 }
 
@@ -262,7 +315,7 @@ async function scanOne(video, keyword) {
       cleanupPath = audioPath;
     }
 
-    // Transcribe
+    // Transcribe audio
     let transcript = '';
     let formattedTranscript = '';
     if (audioPath) {
@@ -274,14 +327,46 @@ async function scanOne(video, keyword) {
       }
     }
 
-    // Classify — even if no transcript (title analysis alone may be enough)
-    const cls = await classifyContent({
-      platform:  video.platform,
-      username:  video.uploader,
-      caption:   video.title,
-      transcript,
-      formattedTranscript,
-    });
+    // ── No description + no transcript → visual fallback ─────────────────────
+    // Live streams often have no caption. Capture a frame so Claude can OCR
+    // on-screen text: Kaspi numbers, "send money", casino UI, QR codes, etc.
+    let imageBase64 = null;
+    const hasText = (video.title?.length ?? 0) + transcript.length > 20;
+    if (!hasText) {
+      console.log(`[scanner]   No text — trying visual analysis`);
+      if (video.isLive) {
+        imageBase64 = await captureLiveFrame(video.url);
+        if (imageBase64) console.log(`[scanner]   Captured live frame`);
+      }
+      if (!imageBase64 && video.thumbnail) {
+        imageBase64 = await fetchThumbnail(video.thumbnail);
+        if (imageBase64) console.log(`[scanner]   Using thumbnail`);
+      }
+    }
+
+    // ── Classify ──────────────────────────────────────────────────────────────
+    let cls;
+    if (imageBase64 && !hasText) {
+      // Visual-only: classifyImage does OCR + fraud classification in one call
+      const imgResult = await classifyImage({ imageBase64, mediaType: 'image/jpeg' });
+      cls = { ...imgResult };
+      if (imgResult?.ocrText) transcript = imgResult.ocrText; // log what was read
+    } else if (imageBase64) {
+      // Hybrid: text analysis + image in parallel, take the highest risk
+      const [textCls, imgCls] = await Promise.all([
+        classifyContent({ platform: video.platform, username: video.uploader, caption: video.title, transcript, formattedTranscript }),
+        classifyImage({ imageBase64, mediaType: 'image/jpeg' }),
+      ]);
+      cls = (imgCls?.riskScore ?? 0) > (textCls?.riskScore ?? 0) ? imgCls : textCls;
+    } else {
+      cls = await classifyContent({
+        platform:  video.platform,
+        username:  video.uploader,
+        caption:   video.title,
+        transcript,
+        formattedTranscript,
+      });
+    }
 
     if (cls.riskScore < RISK_THRESHOLD) {
       console.log(`[scanner]   OK (risk ${cls.riskScore}%)`);

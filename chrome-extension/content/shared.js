@@ -506,8 +506,21 @@
       return false;
     },
 
-    // For live streams: skip text analysis, immediately monitor audio+video
-    startLiveStreamWatcher(platform, url) {
+    // For live streams: skip text analysis (no description), immediately monitor audio+video.
+    // Also capture an instant first frame so fraud visible ON SCREEN is caught right away
+    // without waiting for the 20-second periodic frame interval.
+    async startLiveStreamWatcher(platform, url) {
+      // Give the player ~2s to render a real frame
+      await new Promise(r => setTimeout(r, 2000));
+      const firstFrame = window.AMW.captureVideoFrame();
+      if (firstFrame) {
+        const result = await window.AMW.classifyImage(firstFrame);
+        if (result && (result.riskScore ?? 0) >= 0.65) {
+          result.source = 'live-frame';
+          window.AMW.showWarning(result, platform);
+        }
+      }
+
       const stopWatcher = window.AMW.startVideoWatcher(platform, url);
       // Show subtle "monitoring" indicator
       const banner = document.createElement('div');
