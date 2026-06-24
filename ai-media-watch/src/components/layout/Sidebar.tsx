@@ -17,8 +17,8 @@ export function Sidebar() {
     <aside className="group w-20 hover:w-64 transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] hidden md:flex flex-col bg-surface-container z-40 shrink-0 overflow-hidden relative floating-sidebar">
       {/* Logo */}
       <div className="px-5 py-7 flex items-center gap-3 min-w-0 relative z-10">
-        <div className="w-9 h-9 shrink-0 flex items-center justify-center">
-          <img src="/logo.png" alt="Spectra AI" width={36} height={36} />
+        <div className="w-12 h-12 shrink-0 flex items-center justify-center">
+          <img src="/logo.png" alt="Spectra AI" width={52} height={52} />
         </div>
         <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap overflow-hidden">
           <p className="num-display text-on-surface text-sm">SPECTRA AI</p>
