@@ -1,5 +1,5 @@
 /**
- * AI Media Watch — shared utilities injected into every page.
+ * Spectra AI — shared utilities injected into every page.
  * Loaded before platform-specific scripts.
  */
 (function () {

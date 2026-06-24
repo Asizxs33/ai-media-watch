@@ -1,5 +1,5 @@
 /**
- * AI Media Watch — Background Service Worker
+ * Spectra AI — Background Service Worker
  * Handles API calls, time tracking, settings storage.
  */
 

@@ -203,7 +203,7 @@ export const useAppStore = create<AppState>()(
       },
     }),
     {
-      name: 'ai-media-watch-results',
+      name: 'spectra-ai-results',
       // posts come from DB, filters saved locally
       partialize: (s) => ({ filters: s.filters }),
     }

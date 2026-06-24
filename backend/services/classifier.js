@@ -47,7 +47,7 @@ export function scoreAccount(data) {
   return runPythonScript(ACCOUNT_SCRIPT, data);
 }
 
-const SYSTEM_PROMPT = `Ты — система мониторинга мошенничества AI Media Watch для Казахстана.
+const SYSTEM_PROMPT = `Ты — система мониторинга мошенничества Spectra AI для Казахстана.
 Анализируй контент из социальных сетей (TikTok, Instagram, YouTube) и определяй признаки:
 
 1. КАЗИНО (casino) — реклама нелицензированных азартных игр, онлайн-казино, ставки

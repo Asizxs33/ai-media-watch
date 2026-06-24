@@ -1,5 +1,5 @@
 """
-AI Media Watch — Account Risk Scorer.
+Spectra AI — Account Risk Scorer.
 Analyzes account-level features to detect suspicious accounts.
 
 Input (stdin JSON):

@@ -1,5 +1,5 @@
 /**
- * AI Media Watch — Instagram content script.
+ * Spectra AI — Instagram content script.
  * Monitors reels and posts.
  */
 (function () {

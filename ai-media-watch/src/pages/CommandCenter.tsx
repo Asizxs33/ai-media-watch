@@ -41,7 +41,7 @@ export default function CommandCenter() {
   // CLI State
   const [cliInput, setCliInput] = useState('');
   const [cliLogs, setCliLogs] = useState<string[]>([
-    'SYSTEM: AI Media Watch CommandCenter initialized.',
+    'SYSTEM: Spectra AI CommandCenter initialized.',
     'SYSTEM: Enter "help" to view CLI commands.',
     'SYSTEM: Click Microphone to use Voice Controls.'
   ]);

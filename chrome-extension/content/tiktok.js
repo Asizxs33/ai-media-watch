@@ -1,5 +1,5 @@
 /**
- * AI Media Watch — TikTok content script.
+ * Spectra AI — TikTok content script.
  * Monitors video changes via URL and scroll.
  */
 (function () {

@@ -1,5 +1,5 @@
 """
-AI Media Watch — ML inference script.
+Spectra AI — ML inference script.
 Called from Node.js via child_process.spawnSync.
 Reads JSON from stdin, writes JSON to stdout.
 

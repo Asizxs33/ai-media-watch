@@ -51,7 +51,7 @@ app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
 initDb().catch(err => console.error('[db] Init failed:', err.message));
 
 app.listen(PORT, () => {
-  console.log(`\n🚀 AI Media Watch Backend — http://localhost:${PORT}`);
+  console.log(`\n🚀 Spectra AI Backend — http://localhost:${PORT}`);
   console.log(`   Claude API: ${process.env.ANTHROPIC_API_KEY ? '✅ настроен' : '❌ не задан (ANTHROPIC_API_KEY)'}`);
   console.log(`   OpenAI API: ${process.env.OPENAI_API_KEY ? '✅ настроен' : '⚠️  не задан (Whisper недоступен)'}`);
   console.log(`   Database:   ${process.env.DATABASE_URL ? '✅ Neon PostgreSQL' : '❌ не задан (DATABASE_URL)'}\n`);

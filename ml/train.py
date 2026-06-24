@@ -1,5 +1,5 @@
 ﻿"""
-AI Media Watch — Text Classifier
+Spectra AI — Text Classifier
 Train a TF-IDF + LogisticRegression model on Russian fraud/casino/pyramid text.
 Works alongside Claude API: ML handles confident cases, Claude handles edge cases.
 """

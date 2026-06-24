@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "AI Media Watch — Защита от мошенничества",
+  "name": "Spectra AI — Защита от мошенничества",
   "version": "1.0.0",
   "description": "Обнаруживает мошеннический контент в YouTube, TikTok и Instagram. Самоконтроль времени.",
   "permissions": ["storage", "alarms"],

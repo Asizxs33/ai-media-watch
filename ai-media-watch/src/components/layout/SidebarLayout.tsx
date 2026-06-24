@@ -21,7 +21,7 @@ export function SidebarLayout({ children }: Props) {
         {/* Header */}
         <header className="sticky top-0 z-30 flex items-center justify-between px-6 h-16 bg-background/80 backdrop-blur-xl border-b border-white/[0.06]">
           <div className="flex items-center gap-2.5">
-            <span className="num-display text-lg text-on-surface">AI Media Watch</span>
+            <span className="num-display text-lg text-on-surface">Spectra AI</span>
             <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
           </div>
           <div className="flex items-center gap-2">

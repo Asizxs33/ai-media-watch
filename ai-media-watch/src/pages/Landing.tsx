@@ -382,7 +382,7 @@ export default function Landing() {
       {/* ══ FOOTER ══ */}
       <footer className="relative z-10 border-t border-white/[0.06] py-6 px-5 md:px-8">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <span className="font-code-sm text-[11px] text-on-surface-variant">AI Media Watch © 2024 — прототип</span>
+          <span className="font-code-sm text-[11px] text-on-surface-variant">Spectra AI © 2026</span>
           <div className="flex items-center gap-1.5">
             <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
             <span className="font-code-sm text-[11px] text-primary uppercase tracking-widest">Система активна</span>

@@ -1,5 +1,5 @@
 /**
- * AI Media Watch — YouTube content script.
+ * Spectra AI — YouTube content script.
  * Detects video loads via yt-navigate-finish and URL observer.
  */
 (function () {

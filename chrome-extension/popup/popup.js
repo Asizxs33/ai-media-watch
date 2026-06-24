@@ -1,5 +1,5 @@
 /**
- * AI Media Watch — Popup logic
+ * Spectra AI — Popup logic
  */
 (function () {
   'use strict';
