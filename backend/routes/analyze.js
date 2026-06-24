@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { classifyContent, classifyImage } from '../services/classifier.js';
 import { scrapePageText, detectPlatform } from '../services/scraper.js';
-import { transcribeFromUrl, transcribeBuffer } from '../services/transcriber.js';
+import { transcribeFromUrl, transcribeBuffer, formatSegments } from '../services/transcriber.js';
 import { savePost } from '../services/db.js';
 
 export const analyzeRouter = Router();
@@ -62,23 +62,42 @@ analyzeRouter.post('/text', async (req, res) => {
  * Body: { base64, mimeType, platform, url }
  */
 analyzeRouter.post('/audio-chunk', async (req, res) => {
-  const { base64, mimeType = 'audio/webm', platform = 'unknown', url = '' } = req.body;
+  const { base64, mimeType = 'audio/webm', platform = 'unknown', url = '', videoTime = 0 } = req.body;
   if (!base64) return res.status(400).json({ success: false, error: 'base64 обязателен' });
 
   const ext = mimeType.includes('ogg') ? 'ogg' : 'webm';
 
   try {
-    console.log(`[/audio-chunk] Transcribing ${Math.round(base64.length * 0.75 / 1024)}KB from ${platform}`);
-    const transcript = await transcribeBuffer(base64, ext);
+    console.log(`[/audio-chunk] Transcribing ${Math.round(base64.length * 0.75 / 1024)}KB from ${platform} at ${videoTime}s`);
+    const transcriptResult = await transcribeBuffer(base64, ext);
 
-    if (!transcript || transcript.trim().length < 5) {
+    if (!transcriptResult?.text || transcriptResult.text.trim().length < 5) {
       return res.json({ success: true, skipped: true, reason: 'empty transcript' });
     }
 
-    console.log(`[/audio-chunk] Transcript (${transcript.length} chars): ${transcript.slice(0, 100)}`);
-    const result = await classifyContent({ platform, transcript, caption: transcript });
+    const { text: transcript, segments = [] } = transcriptResult;
+    // Offset segment timestamps by videoTime so they reflect absolute position in video
+    const offsetSegments = segments.map(s => {
+      const abs = s.start + videoTime;
+      const m = Math.floor(abs / 60), sec = Math.floor(abs % 60);
+      return { ...s, ts: `${m}:${sec.toString().padStart(2, '0')}` };
+    });
+    const formattedTranscript = formatSegments(offsetSegments) || transcript;
 
-    return res.json({ success: true, source: 'live-audio', transcript: transcript.slice(0, 500), ...result });
+    console.log(`[/audio-chunk] Transcript (${transcript.length} chars): ${transcript.slice(0, 80)}`);
+    const result = await classifyContent({ platform, transcript, formattedTranscript, caption: transcript });
+
+    // Format absolute video timestamp for UI
+    const mm = Math.floor(videoTime / 60), ss = Math.floor(videoTime % 60);
+    const detectedAtFormatted = `${mm}:${ss.toString().padStart(2, '0')}`;
+
+    return res.json({
+      success: true, source: 'live-audio',
+      transcript: transcript.slice(0, 500),
+      detectedAt: videoTime,
+      detectedAtFormatted,
+      ...result,
+    });
   } catch (err) {
     console.error('[/audio-chunk]', err.message);
     return res.status(500).json({ success: false, error: err.message });
@@ -152,15 +171,17 @@ analyzeRouter.post('/deep', async (req, res) => {
     return res.status(500).json({ success: false, error: err.message });
   }
 
-  // Step 2: If URL provided and text risk >= 45%, try audio transcription
+  // Step 2: If URL provided and text risk >= 45%, try audio transcription with timestamps
   const AUDIO_THRESHOLD = 45;
   if (url && (result.riskScore ?? 0) >= AUDIO_THRESHOLD) {
     try {
       console.log(`[/deep] Risk ${result.riskScore}% — transcribing ${url}`);
-      transcript = await transcribeFromUrl(url) ?? '';
-      if (transcript) {
+      const transcriptResult = await transcribeFromUrl(url);
+      if (transcriptResult?.text) {
+        transcript = transcriptResult.text;
         audioAnalyzed = true;
-        result = await classifyContent({ caption, username, platform, transcript });
+        const formattedTranscript = formatSegments(transcriptResult.segments);
+        result = await classifyContent({ caption, username, platform, transcript, formattedTranscript });
         console.log(`[/deep] Audio re-classify → ${result.riskScore}%`);
       }
     } catch (err) {
@@ -204,12 +225,15 @@ analyzeRouter.post('/url', async (req, res) => {
     console.warn('[/url] Scrape failed:', err.message);
   }
 
-  // Step 2: Try Whisper transcription (requires yt-dlp)
+  // Step 2: Try Whisper transcription with timestamps (requires yt-dlp)
+  let formattedTranscript = '';
   try {
-    transcript = await transcribeFromUrl(url) ?? '';
-    if (transcript) {
+    const transcriptResult = await transcribeFromUrl(url);
+    if (transcriptResult?.text) {
+      transcript = transcriptResult.text;
+      formattedTranscript = formatSegments(transcriptResult.segments);
       steps.push('whisper_ok');
-      console.log(`[/url] Whisper returned ${transcript.length} chars`);
+      console.log(`[/url] Whisper: ${transcript.length} chars, ${transcriptResult.segments?.length || 0} segments`);
     } else {
       steps.push('whisper_skip');
     }
@@ -232,6 +256,7 @@ analyzeRouter.post('/url', async (req, res) => {
       platform: scraped.platform,
       scrapedText: scraped.text,
       transcript,
+      formattedTranscript,
     });
 
     // Save to DB (fire and forget)

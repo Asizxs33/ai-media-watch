@@ -102,6 +102,38 @@
     }
     .amw-btn-ghost:hover { border-color: #444; color: #888; }
 
+    /* Detected-at timestamp */
+    .amw-fraud-time {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(206,255,26,0.08); border: 1px solid rgba(206,255,26,0.2);
+      border-radius: 8px; padding: 6px 12px;
+      color: #ceff1a; font-size: 12px; font-weight: 600;
+      margin-bottom: 16px;
+    }
+    /* Clickable fraud timestamp chips */
+    .amw-ts-wrap { margin-bottom: 16px; }
+    .amw-ts-label { color: #555; font-size: 12px; margin-bottom: 8px; }
+    .amw-ts-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .amw-ts-chip {
+      background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3);
+      color: #f87171; border-radius: 6px; padding: 3px 10px;
+      font-size: 12px; font-weight: 600; cursor: pointer;
+      transition: background 0.15s;
+    }
+    .amw-ts-chip:hover { background: rgba(239,68,68,0.25); }
+
+    /* Live stream badge */
+    .amw-live-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3);
+      border-radius: 100px; padding: 4px 12px;
+      color: #f87171; font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      margin-bottom: 10px;
+      animation: amw-pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes amw-pulse { 0%,100% { opacity:1; } 50% { opacity:0.6; } }
+
     /* Time banner */
     #amw-time-banner {
       position: fixed; bottom: 24px; left: 50%;
@@ -167,15 +199,34 @@
       const pct = Math.round(score * 100);
       const reason = result.reason || result.explanation || 'Похоже на мошенническую схему';
       const tags = (result.schemeTypes || (result.schemeType ? [result.schemeType] : []));
+      const isLive = result.source === 'live-audio' || result.source === 'live-frame';
+
+      // When found in audio: show timestamp where it was detected
+      const detectedAtHtml = result.detectedAtFormatted
+        ? `<div class="amw-fraud-time">⏱ Обнаружено на ${result.detectedAtFormatted}</div>`
+        : '';
+
+      // Fraud timestamp chips — click to jump to that moment in the video
+      const timestamps = Array.isArray(result.fraudTimestamps) ? result.fraudTimestamps : [];
+      const tsHtml = timestamps.length
+        ? `<div class="amw-ts-wrap">
+             <div class="amw-ts-label">Моменты с мошенничеством:</div>
+             <div class="amw-ts-chips">
+               ${timestamps.map(t => `<span class="amw-ts-chip" data-ts="${t}">${t}</span>`).join('')}
+             </div>
+           </div>`
+        : '';
 
       const overlay = document.createElement('div');
       overlay.id = 'amw-fraud-overlay';
       overlay.innerHTML = `
         <div class="amw-card">
+          ${isLive ? '<div class="amw-live-badge">● Прямой эфир</div><br>' : ''}
           <div class="amw-badge ${isHigh ? 'danger' : 'warn'}">
             ${isHigh ? '🚨 Мошенничество' : '⚠ Подозрительно'}
           </div>
           <h2 class="amw-fraud-title">AI обнаружил ${isHigh ? 'мошеннический' : 'подозрительный'} контент</h2>
+          ${detectedAtHtml}
           <p class="amw-fraud-desc">${reason}</p>
           <div class="amw-risk-row">
             <span class="amw-risk-label">Риск</span>
@@ -184,6 +235,7 @@
             </div>
             <span class="amw-risk-pct">${pct}%</span>
           </div>
+          ${tsHtml}
           ${tags.length ? `<div class="amw-tags">${tags.map(t => `<span class="amw-tag">${t}</span>`).join('')}</div>` : ''}
           <div class="amw-actions">
             <button class="amw-btn-primary" id="amw-back-btn">← Уйти</button>
@@ -192,6 +244,16 @@
         </div>
       `;
       document.body.appendChild(overlay);
+
+      // Timestamp chips → jump to that moment in video
+      overlay.querySelectorAll('.amw-ts-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          const [mm, ss] = chip.dataset.ts.split(':').map(Number);
+          const vid = document.querySelector('video');
+          if (vid) vid.currentTime = mm * 60 + (ss || 0);
+          overlay.remove();
+        });
+      });
 
       document.getElementById('amw-back-btn').addEventListener('click', () => {
         // Save to local blocklist + update DB status to 'blocked'
@@ -328,9 +390,9 @@
       return { ...textResult, imageAnalyzed: !!imageBase64, imageRiskScore: ir };
     },
 
-    async classifyAudioChunk({ base64, mimeType, platform, url }) {
+    async classifyAudioChunk({ base64, mimeType, platform, url, videoTime = 0 }) {
       return new Promise(resolve => {
-        safeSend({ type: 'CLASSIFY_AUDIO_CHUNK', base64, mimeType, platform, url }, resp => {
+        safeSend({ type: 'CLASSIFY_AUDIO_CHUNK', base64, mimeType, platform, url, videoTime }, resp => {
           resolve(resp?.ok ? resp.result : null);
         });
       });
@@ -383,6 +445,9 @@
           const blob = new Blob(chunks.splice(0), { type: mimeType });
           if (blob.size < 8000) return; // skip near-silence
 
+          // Capture timestamp BEFORE async work so it reflects the moment of detection
+          const videoTime = Math.floor(video.currentTime);
+
           const buf = await blob.arrayBuffer();
           const u8 = new Uint8Array(buf);
           let bin = '';
@@ -391,7 +456,7 @@
           }
           const base64 = btoa(bin);
           const key = `audio-${Math.floor(Date.now() / CHUNK_MS)}`;
-          const result = await window.AMW.classifyAudioChunk({ base64, mimeType, platform, url });
+          const result = await window.AMW.classifyAudioChunk({ base64, mimeType, platform, url, videoTime });
           maybeWarn(result, key);
         };
 
@@ -417,6 +482,50 @@
         clearInterval(frameTimer);
         clearInterval(chunkTimer);
         try { if (recorder?.state !== 'inactive') recorder.stop(); } catch {}
+      };
+    },
+
+    // Detect if the current page is a live stream (YouTube Live, TikTok Live, etc.)
+    isLiveStream() {
+      const host = location.hostname;
+      const path = location.pathname;
+      if (host.includes('youtube.com')) {
+        return path.includes('/live/') ||
+          !!document.querySelector('.ytp-live-badge[aria-label], .ytp-live') ||
+          !!document.querySelector('ytd-badge-supported-renderer .badge-style-type-live-now');
+      }
+      if (host.includes('tiktok.com')) {
+        return path.includes('/live') || !!document.querySelector('[data-e2e="live-room-title"]');
+      }
+      if (host.includes('instagram.com')) {
+        return path.includes('/live/');
+      }
+      if (host.includes('vk.com') || host.includes('vk.ru')) {
+        return !!document.querySelector('.live-badge, .VideoLiveBadge');
+      }
+      return false;
+    },
+
+    // For live streams: skip text analysis, immediately monitor audio+video
+    startLiveStreamWatcher(platform, url) {
+      const stopWatcher = window.AMW.startVideoWatcher(platform, url);
+      // Show subtle "monitoring" indicator
+      const banner = document.createElement('div');
+      banner.id = 'amw-live-monitor';
+      banner.style.cssText = `
+        position:fixed; top:16px; right:16px; z-index:2147483646;
+        background:#141414; border:1px solid rgba(206,255,26,0.25);
+        border-radius:100px; padding:8px 16px;
+        font-family:'Inter',system-ui,sans-serif; font-size:12px; font-weight:600;
+        color:#ceff1a; display:flex; align-items:center; gap:8px;
+        box-shadow:0 4px 24px rgba(0,0,0,0.5);
+        animation:amw-slide-up 0.4s cubic-bezier(0.16,1,0.3,1);
+      `;
+      banner.innerHTML = `<span style="width:7px;height:7px;border-radius:50%;background:#ceff1a;animation:amw-pulse 1.5s ease-in-out infinite;flex-shrink:0;display:inline-block"></span> Spectra AI мониторит эфир`;
+      document.body.appendChild(banner);
+      return () => {
+        if (stopWatcher) stopWatcher();
+        banner.remove();
       };
     },
 

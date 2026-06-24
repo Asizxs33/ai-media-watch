@@ -13,7 +13,7 @@ import { Router } from 'express';
 import { searchYoutube, searchTiktok } from '../services/search.js';
 import { classifyContent } from '../services/classifier.js';
 import { savePost } from '../services/db.js';
-import { transcribeFromUrl } from '../services/transcriber.js';
+import { transcribeFromUrl, formatSegments } from '../services/transcriber.js';
 
 // Transcribe only if initial risk score is above this threshold
 const TRANSCRIBE_RISK_THRESHOLD = 60;
@@ -68,17 +68,20 @@ async function runScan({ keywords, platforms, limit }, emit, getAborted) {
               platform: 'youtube', username: video.uploader, caption: video.title, scrapedText: text,
             });
 
-            // Step 2: if suspicious — transcribe audio and re-classify
+            // Step 2: if suspicious — transcribe with timestamps and re-classify
             let cls = clsText;
             let transcript = '';
             if (clsText.riskScore >= TRANSCRIBE_RISK_THRESHOLD) {
               emit('status', { message: `Транскрибирую аудио: ${video.title.slice(0, 50)}...` });
               try {
-                transcript = await transcribeFromUrl(video.url) ?? '';
-                if (transcript) {
+                const transcriptResult = await transcribeFromUrl(video.url);
+                if (transcriptResult?.text) {
+                  transcript = transcriptResult.text;
+                  const formattedTranscript = formatSegments(transcriptResult.segments);
                   cls = await classifyContent({
                     platform: 'youtube', username: video.uploader,
-                    caption: video.title, scrapedText: text, transcript,
+                    caption: video.title, scrapedText: text,
+                    transcript, formattedTranscript,
                   });
                 }
               } catch { /* transcript failure is non-fatal */ }
@@ -126,17 +129,20 @@ async function runScan({ keywords, platforms, limit }, emit, getAborted) {
               platform: 'tiktok', username: video.uploader, caption: video.description, scrapedText: text,
             });
 
-            // Step 2: if suspicious — transcribe and re-classify
+            // Step 2: if suspicious — transcribe with timestamps and re-classify
             let cls = clsText;
             let transcript = '';
             if (clsText.riskScore >= TRANSCRIBE_RISK_THRESHOLD) {
               emit('status', { message: `Транскрибирую TikTok: ${(video.description || '').slice(0, 40)}...` });
               try {
-                transcript = await transcribeFromUrl(video.url) ?? '';
-                if (transcript) {
+                const transcriptResult = await transcribeFromUrl(video.url);
+                if (transcriptResult?.text) {
+                  transcript = transcriptResult.text;
+                  const formattedTranscript = formatSegments(transcriptResult.segments);
                   cls = await classifyContent({
                     platform: 'tiktok', username: video.uploader,
-                    caption: video.description, scrapedText: text, transcript,
+                    caption: video.description, scrapedText: text,
+                    transcript, formattedTranscript,
                   });
                 }
               } catch { /* non-fatal */ }

@@ -48,6 +48,13 @@
 
     await new Promise(r => setTimeout(r, 2000));
 
+    // TikTok LIVE: skip text analysis, monitor directly
+    if (window.AMW.isLiveStream()) {
+      if (stopWatcher) stopWatcher();
+      stopWatcher = window.AMW.startLiveStreamWatcher(PLATFORM, url);
+      return;
+    }
+
     const { desc, user, comments } = extractVideo();
     // Combine all text; if still empty — URL-only analysis (backend will scrape)
     const text = [desc, comments].filter(Boolean).join('\n').slice(0, 2500);

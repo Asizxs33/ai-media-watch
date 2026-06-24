@@ -37,7 +37,7 @@
   }
 
   async function analyzeVideo(url) {
-    if (!url.includes('/watch')) return;
+    if (!url.includes('/watch') && !url.includes('/live/')) return;
     if (await window.AMW.isBlocked(url)) {
       location.replace('https://www.youtube.com/');
       return;
@@ -45,7 +45,13 @@
     if (window.AMW.classified.has(url)) return;
     window.AMW.classified.add(url);
 
-    await new Promise(r => setTimeout(r, 3000));
+    await new Promise(r => setTimeout(r, 2500));
+
+    // Live streams: skip text analysis (no description), monitor immediately
+    if (window.AMW.isLiveStream()) {
+      stopWatcher = window.AMW.startLiveStreamWatcher(PLATFORM, url);
+      return;
+    }
 
     const { title, channel, desc, comments } = extractVideo();
     const text = [title, desc, comments].filter(Boolean).join('\n').slice(0, 3000);

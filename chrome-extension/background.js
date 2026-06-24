@@ -73,13 +73,13 @@ async function getTodayBlocked() {
 // Platforms that support audio transcription via yt-dlp
 const AUDIO_PLATFORMS = new Set(['youtube', 'tiktok', 'instagram', 'twitter', 'facebook', 'vk', 'ok']);
 
-async function classifyAudioChunk(base64, mimeType, platform, url) {
+async function classifyAudioChunk(base64, mimeType, platform, url, videoTime = 0) {
   const settings = await getSettings();
   if (!settings.enabled) return null;
   const response = await fetch(`${settings.backendUrl}/api/analyze/audio-chunk`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ base64, mimeType, platform, url }),
+    body: JSON.stringify({ base64, mimeType, platform, url, videoTime }),
     signal: AbortSignal.timeout(60000),
   });
   if (!response.ok) throw new Error(`Backend ${response.status}`);
@@ -170,7 +170,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       return true;
 
     case 'CLASSIFY_AUDIO_CHUNK':
-      classifyAudioChunk(msg.base64, msg.mimeType, msg.platform, msg.url)
+      classifyAudioChunk(msg.base64, msg.mimeType, msg.platform, msg.url, msg.videoTime ?? 0)
         .then(result => sendResponse({ ok: true, result }))
         .catch(err => sendResponse({ ok: false, error: err.message }));
       return true;

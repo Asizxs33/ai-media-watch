@@ -38,12 +38,13 @@ async function downloadAudio(url) {
 }
 
 /**
- * Transcribe audio file using local faster-whisper (free, offline).
+ * Transcribe audio file using local faster-whisper.
+ * Returns { text, segments } where segments = [{start, end, ts, text}]
  */
 function transcribeLocal(audioPath) {
   const result = spawnSync('python', [WHISPER_SCRIPT, audioPath], {
     encoding: 'utf8',
-    timeout: 180_000, // 3 min max
+    timeout: 180_000,
   });
 
   if (result.error || result.status !== 0) {
@@ -57,10 +58,19 @@ function transcribeLocal(audioPath) {
       console.warn('[transcriber] Whisper error:', parsed.error);
       return null;
     }
-    return parsed.text || null;
+    // Return full parsed object (text + segments)
+    return parsed.text ? parsed : null;
   } catch {
     return null;
   }
+}
+
+/**
+ * Format timestamped segments as [MM:SS] text\n... string for Claude.
+ */
+export function formatSegments(segments = []) {
+  if (!segments?.length) return '';
+  return segments.map(s => `[${s.ts}] ${s.text}`).join('\n');
 }
 
 /**
@@ -98,27 +108,28 @@ async function ytDlpAvailable() {
 }
 
 /**
- * Transcribe raw audio buffer (base64) sent from browser extension.
- * Used for live video capture via MediaRecorder / captureStream().
+ * Transcribe raw audio buffer (base64) — live chunks from browser extension.
+ * Returns { text, segments } or null.
  */
 export async function transcribeBuffer(base64, ext = 'webm') {
   const tmpPath = join(TMP_DIR, `chunk_${Date.now()}.${ext}`);
   await writeFile(tmpPath, Buffer.from(base64, 'base64'));
   try {
-    let text = transcribeLocal(tmpPath);
-    if (!text && process.env.OPENAI_API_KEY) {
-      text = await transcribeOpenAI(tmpPath);
+    let result = transcribeLocal(tmpPath);
+    if (!result && process.env.OPENAI_API_KEY) {
+      const raw = await transcribeOpenAI(tmpPath);
+      if (raw) result = { text: raw, segments: [], language: 'ru', duration: 0 };
     }
-    return text;
+    return result;
   } finally {
     await unlink(tmpPath).catch(() => {});
   }
 }
 
 /**
- * Download video audio and transcribe it.
- * Tries local Whisper first, falls back to OpenAI Whisper API.
- * Returns transcript string or null.
+ * Download audio from URL and transcribe it.
+ * Returns { text, segments, language, duration } or null.
+ * segments = [{ start, end, ts, text }] with human-readable timestamps.
  */
 export async function transcribeFromUrl(url) {
   if (!(await ytDlpAvailable())) {
@@ -131,23 +142,22 @@ export async function transcribeFromUrl(url) {
   if (!audioPath) return null;
 
   try {
-    // Try local Whisper first (free)
     console.log('[transcriber] Transcribing locally (faster-whisper)...');
-    let text = transcribeLocal(audioPath);
+    let result = transcribeLocal(audioPath);
 
-    // Fallback to OpenAI Whisper API
-    if (!text && process.env.OPENAI_API_KEY) {
+    if (!result && process.env.OPENAI_API_KEY) {
       console.log('[transcriber] Falling back to OpenAI Whisper...');
-      text = await transcribeOpenAI(audioPath);
+      const raw = await transcribeOpenAI(audioPath);
+      if (raw) result = { text: raw, segments: [], language: 'ru', duration: 0 };
     }
 
-    if (text) {
-      console.log(`[transcriber] Transcript: ${text.length} chars`);
+    if (result?.text) {
+      console.log(`[transcriber] Transcript: ${result.text.length} chars, ${result.segments?.length || 0} segments`);
     } else {
       console.warn('[transcriber] No transcript obtained');
     }
 
-    return text;
+    return result;
   } finally {
     if (existsSync(audioPath)) {
       await unlink(audioPath).catch(() => {});

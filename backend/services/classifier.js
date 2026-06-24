@@ -71,9 +71,10 @@ const SYSTEM_PROMPT = `Ты — система мониторинга мошен
  * @returns {Promise<ClassificationResult>}
  */
 export async function classifyContent(input) {
-  const { caption = '', hashtags = [], platform = '', username = '', transcript = '', scrapedText = '' } = input;
+  const { caption = '', hashtags = [], platform = '', username = '',
+          transcript = '', scrapedText = '', formattedTranscript = '' } = input;
 
-  const fullText = [caption, transcript, scrapedText, hashtags.join(' ')].filter(Boolean).join('\n');
+  const fullText = [caption, formattedTranscript || transcript, scrapedText, hashtags.join(' ')].filter(Boolean).join('\n');
 
   // ── Step 1: ML fast pre-classification ──────────────────────────────────
   const mlResult = runPythonScript(PREDICT_SCRIPT, { text: fullText, username });
@@ -125,7 +126,9 @@ export async function classifyContent(input) {
     username && `Аккаунт: @${username}`,
     caption && `Описание поста:\n${caption}`,
     hashtags.length && `Хэштеги: ${hashtags.map(h => h.startsWith('#') ? h : `#${h}`).join(' ')}`,
-    transcript && `Транскрипт аудио (Whisper):\n${transcript}`,
+    formattedTranscript
+      ? `Транскрипт с временными метками [ММ:СС]:\n${formattedTranscript}`
+      : transcript && `Транскрипт аудио:\n${transcript}`,
     scrapedText && `Текст со страницы:\n${scrapedText}`,
   ].filter(Boolean).join('\n\n');
 
@@ -148,6 +151,8 @@ ${contentBlock}
 - "promo"    — промокод
 Если реквизитов нет — верни пустой массив. НЕ выдумывай: бери только то, что реально есть в тексте.
 
+Если в транскрипте есть временные метки [ММ:СС] — укажи ТОЧНЫЕ метки где говорится о мошенничестве в поле fraudTimestamps.
+
 Верни JSON строго в этом формате:
 {
   "category": "safe" | "casino" | "pyramid" | "fraud",
@@ -156,7 +161,8 @@ ${contentBlock}
   "detectedMarkers": ["строка1", "строка2"],
   "explanation": "Подробное объяснение на русском языке (2-4 предложения)",
   "legalReference": "Ссылка на закон РК или пустая строка",
-  "requisites": [{ "type": "kaspi|card|crypto|telegram|whatsapp|phone|link|promo", "value": "строка" }]
+  "requisites": [{ "type": "kaspi|card|crypto|telegram|whatsapp|phone|link|promo", "value": "строка" }],
+  "fraudTimestamps": ["4:23", "7:45"]
 }`;
 
   const response = await claude.messages.create({
@@ -173,7 +179,7 @@ ${contentBlock}
   const analysisSource = mlResult ? 'ml+claude' : 'claude';
   console.log(`[classifier] ${analysisSource} → ${result.category} (risk=${result.riskScore})`);
 
-  return { ...normalizeResult(result), analysisSource };
+  return { ...normalizeResult(result), analysisSource, fraudTimestamps: Array.isArray(result.fraudTimestamps) ? result.fraudTimestamps : [] };
 }
 
 const ALLOWED_REQ = ['kaspi', 'card', 'crypto', 'telegram', 'whatsapp', 'phone', 'link', 'promo'];
