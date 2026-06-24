@@ -1,5 +1,4 @@
 import { NavLink } from 'react-router-dom';
-import { SpectraLogo } from '../ui/SpectraLogo';
 
 const navItems = [
   { path: '/commandcenter', icon: 'settings_input_antenna', label: 'Командный центр' },
@@ -19,7 +18,7 @@ export function Sidebar() {
       {/* Logo */}
       <div className="px-5 py-7 flex items-center gap-3 min-w-0 relative z-10">
         <div className="w-9 h-9 shrink-0 flex items-center justify-center">
-          <SpectraLogo size={36} />
+          <img src="/logo.png" alt="Spectra AI" width={36} height={36} />
         </div>
         <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap overflow-hidden">
           <p className="num-display text-on-surface text-sm">SPECTRA AI</p>
