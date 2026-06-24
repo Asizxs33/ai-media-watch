@@ -17,11 +17,24 @@ export function Sidebar() {
     <aside className="group w-20 hover:w-64 transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] hidden md:flex flex-col bg-surface-container z-40 shrink-0 overflow-hidden relative floating-sidebar">
       {/* Logo */}
       <div className="px-5 py-7 flex items-center gap-3 min-w-0 relative z-10">
-        <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shrink-0">
-          <span className="material-symbols-outlined text-on-primary text-xl" style={sym}>radar</span>
+        <div className="w-9 h-9 shrink-0 flex items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="36" height="36">
+            <defs>
+              <linearGradient id="pg" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#a855f7"/>
+                <stop offset="100%" stopColor="#6d28d9"/>
+              </linearGradient>
+            </defs>
+            <polygon points="24,3 44,42 4,42" fill="url(#pg)" stroke="#c084fc" strokeWidth="1"/>
+            <line x1="44" y1="42" x2="48" y2="28" stroke="#ef4444" strokeWidth="2.2" strokeLinecap="round"/>
+            <line x1="44" y1="42" x2="48" y2="33" stroke="#f97316" strokeWidth="2.2" strokeLinecap="round"/>
+            <line x1="44" y1="42" x2="48" y2="39" stroke="#eab308" strokeWidth="2.2" strokeLinecap="round"/>
+            <line x1="44" y1="42" x2="48" y2="45" stroke="#22c55e" strokeWidth="2.2" strokeLinecap="round"/>
+            <line x1="44" y1="42" x2="46" y2="51" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round"/>
+          </svg>
         </div>
         <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap overflow-hidden">
-          <p className="num-display text-on-surface text-sm">AI MEDIA WATCH</p>
+          <p className="num-display text-on-surface text-sm">SPECTRA AI</p>
           <p className="text-on-surface-variant text-[10px] font-code-sm tracking-wider">FRAUD INTELLIGENCE</p>
         </div>
       </div>

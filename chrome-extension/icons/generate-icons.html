@@ -6,14 +6,14 @@
   canvas { border: 1px solid #333; margin: 8px; }
   .btn {
     display: inline-block; margin: 4px; padding: 8px 16px;
-    background: #ceff1a; color: #000; border: none; border-radius: 8px;
+    background: #a855f7; color: #fff; border: none; border-radius: 8px;
     cursor: pointer; font-weight: 700; font-size: 13px;
   }
 </style>
 </head>
 <body>
-<h3 style="color:#ceff1a; margin-bottom:16px">🛡 AI Media Watch — Icon Generator</h3>
-<p style="margin-bottom:16px; font-size:13px">Нажми кнопку ниже, иконки скачаются автоматически как icon48.png и icon128.png</p>
+<h3 style="color:#a855f7; margin-bottom:16px">Spectra AI — Icon Generator</h3>
+<p style="margin-bottom:16px; font-size:13px">Нажми кнопку, иконки скачаются автоматически как icon48.png и icon128.png</p>
 <button class="btn" onclick="generateAll()">Скачать иконки</button>
 <br><br>
 <canvas id="c48" width="48" height="48"></canvas>
@@ -21,68 +21,58 @@
 
 <script>
 function drawIcon(canvas) {
-  const size = canvas.width;
+  const s = canvas.width;
   const ctx = canvas.getContext('2d');
-  const r = size * 0.18;
+  const r = s * 0.18;
 
-  // Background
-  const bg = ctx.createLinearGradient(0, 0, size, size);
-  bg.addColorStop(0, '#1a1a1a');
-  bg.addColorStop(1, '#0e0e0e');
+  // Background — dark purple
+  const bg = ctx.createLinearGradient(0, 0, s, s);
+  bg.addColorStop(0, '#1a0a2e');
+  bg.addColorStop(1, '#0e0814');
   ctx.fillStyle = bg;
-  roundRect(ctx, 0, 0, size, size, r);
+  roundRect(ctx, 0, 0, s, s, r);
   ctx.fill();
 
-  // Lime glow
-  const glow = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
-  glow.addColorStop(0, 'rgba(206,255,26,0.12)');
-  glow.addColorStop(1, 'rgba(206,255,26,0)');
-  ctx.fillStyle = glow;
-  roundRect(ctx, 0, 0, size, size, r);
-  ctx.fill();
+  // Prism triangle
+  const pad = s * 0.12;
+  const tx = s * 0.5;   // apex x
+  const ty = s * 0.1;   // apex y
+  const bl = { x: pad, y: s * 0.88 };   // bottom-left
+  const br = { x: s - pad, y: s * 0.88 };  // bottom-right
 
-  // Shield
-  const cx = size / 2;
-  const cy = size / 2 - size * 0.04;
-  const sw = size * 0.52;
-  const sh = size * 0.58;
+  const prismGrad = ctx.createLinearGradient(tx, ty, tx, s * 0.88);
+  prismGrad.addColorStop(0, '#a855f7');
+  prismGrad.addColorStop(1, '#6d28d9');
 
   ctx.beginPath();
-  ctx.moveTo(cx, cy - sh/2);
-  ctx.bezierCurveTo(cx + sw/2, cy - sh/2, cx + sw/2, cy, cx + sw/2, cy + sh*0.15);
-  ctx.bezierCurveTo(cx + sw/2, cy + sh*0.5, cx, cy + sh/2, cx, cy + sh/2);
-  ctx.bezierCurveTo(cx, cy + sh/2, cx - sw/2, cy + sh*0.5, cx - sw/2, cy + sh*0.15);
-  ctx.bezierCurveTo(cx - sw/2, cy, cx - sw/2, cy - sh/2, cx, cy - sh/2);
+  ctx.moveTo(tx, ty);
+  ctx.lineTo(br.x, br.y);
+  ctx.lineTo(bl.x, bl.y);
   ctx.closePath();
-  ctx.fillStyle = '#ceff1a';
+  ctx.fillStyle = prismGrad;
   ctx.fill();
-
-  // Inner shield (dark)
-  const inset = size * 0.06;
-  const iw = sw - inset * 2;
-  const ih = sh - inset * 2;
-  const icy = cy - ih/2 + inset;
-  ctx.beginPath();
-  ctx.moveTo(cx, icy);
-  ctx.bezierCurveTo(cx + iw/2, icy, cx + iw/2, cy, cx + iw/2, cy + ih*0.12);
-  ctx.bezierCurveTo(cx + iw/2, cy + ih*0.45, cx, icy + ih, cx, icy + ih);
-  ctx.bezierCurveTo(cx, icy + ih, cx - iw/2, cy + ih*0.45, cx - iw/2, cy + ih*0.12);
-  ctx.bezierCurveTo(cx - iw/2, cy, cx - iw/2, icy, cx, icy);
-  ctx.closePath();
-  ctx.fillStyle = '#141414';
-  ctx.fill();
-
-  // Check mark
-  const ck = size * 0.12;
-  ctx.strokeStyle = '#ceff1a';
-  ctx.lineWidth = size * 0.07;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-  ctx.moveTo(cx - ck, cy + ck * 0.1);
-  ctx.lineTo(cx - ck * 0.1, cy + ck * 0.9);
-  ctx.lineTo(cx + ck, cy - ck * 0.5);
+  ctx.strokeStyle = '#c084fc';
+  ctx.lineWidth = s * 0.02;
   ctx.stroke();
+
+  // Spectrum rays from bottom-right corner
+  const rays = [
+    { dy: -s * 0.40, color: '#ef4444' },
+    { dy: -s * 0.25, color: '#f97316' },
+    { dy: -s * 0.12, color: '#eab308' },
+    { dy:  s * 0.02, color: '#22c55e' },
+    { dy:  s * 0.14, color: '#38bdf8' },
+  ];
+
+  ctx.lineWidth = s * 0.045;
+  ctx.lineCap = 'round';
+  rays.forEach(({ dy, color }) => {
+    ctx.beginPath();
+    ctx.moveTo(br.x, br.y);
+    ctx.lineTo(s + s * 0.05, br.y + dy);
+    ctx.strokeStyle = color;
+    ctx.stroke();
+  });
 }
 
 function roundRect(ctx, x, y, w, h, r) {
@@ -117,7 +107,6 @@ function generateAll() {
   }, 100);
 }
 
-// Draw preview on load
 window.onload = () => {
   drawIcon(document.getElementById('c48'));
   drawIcon(document.getElementById('c128'));
