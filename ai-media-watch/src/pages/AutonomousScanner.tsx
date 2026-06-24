@@ -8,6 +8,7 @@ const sym = { fontVariationSettings: "'FILL' 0" };
 
 interface ScannerStatus {
   running: boolean;
+  paused: boolean;
   lastRunAt: string | null;
   lastRunDurationS: number | null;
   nextRunAt: string | null;
@@ -50,7 +51,7 @@ function timeUntil(iso: string | null) {
 
 export default function AutonomousScanner() {
   const [status, setStatus] = useState<ScannerStatus | null>(null);
-  const [triggering, setTriggering] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [countdown, setCountdown] = useState('—');
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const countRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -58,18 +59,17 @@ export default function AutonomousScanner() {
   async function fetchStatus() {
     try {
       const r = await fetch(`${BACKEND}/api/scanner/status`);
-      const d = await r.json();
-      setStatus(d);
+      setStatus(await r.json());
     } catch {}
   }
 
-  async function triggerScan() {
-    setTriggering(true);
+  async function call(endpoint: string) {
+    setBusy(true);
     try {
-      await fetch(`${BACKEND}/api/scanner/trigger`, { method: 'POST' });
+      await fetch(`${BACKEND}/api/scanner/${endpoint}`, { method: 'POST' });
       await fetchStatus();
     } finally {
-      setTriggering(false);
+      setBusy(false);
     }
   }
 
@@ -105,9 +105,9 @@ export default function AutonomousScanner() {
       <div className="p-6 max-w-5xl mx-auto">
 
         {/* Header */}
-        <div className="flex items-start justify-between mb-6">
+        <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
           <div>
-            <div className="flex items-center gap-3 mb-1">
+            <div className="flex items-center gap-3 mb-1 flex-wrap">
               <span className="material-symbols-outlined text-[28px] text-primary" style={sym}>robot_2</span>
               <h1 className="text-2xl font-bold text-on-surface">Автономный сканер</h1>
               {status?.running && (
@@ -116,21 +116,53 @@ export default function AutonomousScanner() {
                   СКАНИРУЕТ
                 </span>
               )}
+              {status?.paused && !status?.running && (
+                <span className="flex items-center gap-1.5 text-xs font-bold text-amber-400 bg-amber-400/10 border border-amber-400/25 rounded-full px-3 py-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                  ОСТАНОВЛЕН
+                </span>
+              )}
             </div>
             <p className="text-sm text-on-surface-variant">
-              AI сам ищет прямые эфиры и длинные видео с мошенничеством — без участия пользователя
+              AI сам ищет все виды мошенничества в прямых эфирах и длинных видео — 24 ключевых слова
             </p>
           </div>
-          <button
-            onClick={triggerScan}
-            disabled={triggering || status?.running}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold transition-opacity disabled:opacity-50"
-          >
-            <span className="material-symbols-outlined text-[18px]" style={sym}>
-              {status?.running ? 'hourglass_top' : 'play_arrow'}
-            </span>
-            {status?.running ? 'Идёт сканирование...' : 'Запустить сейчас'}
-          </button>
+
+          {/* Control buttons */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Pause / Resume */}
+            {!status?.paused ? (
+              <button
+                onClick={() => call('pause')}
+                disabled={busy}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-container border border-outline-variant/40 text-on-surface-variant text-sm font-semibold transition-all hover:border-amber-400/40 hover:text-amber-400 disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[18px]" style={sym}>pause</span>
+                Остановить
+              </button>
+            ) : (
+              <button
+                onClick={() => call('resume')}
+                disabled={busy}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-container border border-emerald-400/30 text-emerald-400 text-sm font-semibold transition-all hover:bg-emerald-400/10 disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[18px]" style={sym}>play_arrow</span>
+                Продолжить
+              </button>
+            )}
+
+            {/* Trigger now */}
+            <button
+              onClick={() => call('trigger')}
+              disabled={busy || status?.running}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold transition-opacity disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-[18px]" style={sym}>
+                {status?.running ? 'hourglass_top' : 'bolt'}
+              </span>
+              {status?.running ? 'Сканирует...' : 'Запустить сейчас'}
+            </button>
+          </div>
         </div>
 
         {/* Stats strip */}
@@ -165,6 +197,56 @@ export default function AutonomousScanner() {
             </div>
           </motion.div>
         )}
+
+        {/* Keywords — что именно ищет */}
+        <div className="bg-surface-container border border-outline-variant/30 rounded-2xl p-4 mb-4">
+          <div className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-3">
+            Что ищет — 24 ключевых слова по всем схемам мошенничества
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              { label: 'казино прямой эфир',            cat: 'casino' },
+              { label: 'онлайн казино выигрыш',         cat: 'casino' },
+              { label: 'спортставки заработок',          cat: 'casino' },
+              { label: 'пассивный доход инвестиции',     cat: 'pyramid' },
+              { label: 'MLM сетевой бизнес',            cat: 'pyramid' },
+              { label: 'партнёрская программа прибыль',  cat: 'pyramid' },
+              { label: 'закинь получи прибыль',          cat: 'fraud' },
+              { label: 'вложи удвою деньги',             cat: 'fraud' },
+              { label: 'пришли деньги верну больше',     cat: 'fraud' },
+              { label: 'форекс сигналы заработок',       cat: 'pyramid' },
+              { label: 'трейдинг обучение прибыль',      cat: 'pyramid' },
+              { label: 'бинарные опционы',               cat: 'pyramid' },
+              { label: 'крипта быстрый заработок',       cat: 'fraud' },
+              { label: 'bitcoin инвестиции гарантия',    cat: 'fraud' },
+              { label: 'криптовалюта удвоение',          cat: 'fraud' },
+              { label: 'работа в интернете без вложений',cat: 'fraud' },
+              { label: 'удалённая работа заработок',     cat: 'fraud' },
+              { label: 'Kaspi перевод заработок',        cat: 'fraud' },
+              { label: 'номер карты перевод выигрыш',   cat: 'fraud' },
+              { label: 'розыгрыш приз победитель',       cat: 'fraud' },
+              { label: 'выиграл получи деньги',          cat: 'fraud' },
+              { label: 'заработок прямой эфир live',     cat: 'casino' },
+              { label: 'инвестиции прямой эфир',         cat: 'pyramid' },
+            ].map(({ label, cat }) => (
+              <span
+                key={label}
+                className={`text-[11px] font-mono px-2.5 py-1 rounded-lg border ${
+                  cat === 'casino'  ? 'text-amber-400  bg-amber-400/8  border-amber-400/20'  :
+                  cat === 'pyramid' ? 'text-orange-400 bg-orange-400/8 border-orange-400/20' :
+                                     'text-red-400    bg-red-400/8    border-red-400/20'
+                }`}
+              >
+                {label}
+              </span>
+            ))}
+          </div>
+          <div className="flex gap-4 mt-3 text-[11px] text-on-surface-variant">
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-amber-400/40 inline-block" /> казино/ставки</span>
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-orange-400/40 inline-block" /> пирамиды/MLM</span>
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-red-400/40 inline-block" /> мошенничество</span>
+          </div>
+        </div>
 
         {/* How it works */}
         <div className="bg-surface-container border border-outline-variant/30 rounded-2xl p-4 mb-6">

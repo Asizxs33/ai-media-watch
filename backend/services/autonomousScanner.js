@@ -29,14 +29,40 @@ const LIVE_SAMPLE_MS   = 90_000;          // capture 90s of live audio
 const MAX_PER_KEYWORD  = 4;               // videos scanned per keyword per cycle
 const RISK_THRESHOLD   = 60;             // minimum riskScore to save as finding
 
-// Казахстан-specific fraud keyword combinations
+// All major fraud schemes active in Kazakhstan — not just casino
 const FRAUD_KEYWORDS = [
+  // Казино / ставки
   'казино прямой эфир',
-  'быстрый заработок без вложений',
+  'онлайн казино выигрыш',
+  'спортставки заработок',
+  // Финансовые пирамиды / MLM
   'пассивный доход инвестиции',
+  'MLM сетевой бизнес заработок',
+  'партнёрская программа прибыль',
+  // "Закинь-получи" схемы
   'закинь получи прибыль',
+  'вложи удвою деньги',
+  'пришли деньги верну больше',
+  // Форекс / трейдинг
+  'форекс сигналы заработок',
+  'трейдинг обучение прибыль',
+  'бинарные опционы заработок',
+  // Крипто мошенничество
+  'крипта быстрый заработок',
+  'bitcoin инвестиции гарантия',
+  'криптовалюта удвоение',
+  // Работа / вакансии
+  'работа в интернете без вложений',
+  'удалённая работа заработок',
+  // Kaspi / карты
   'Kaspi перевод заработок',
-  'криптовалюта обучение заработок',
+  'номер карты перевод выигрыш',
+  // Розыгрыши фейковые
+  'розыгрыш приз победитель',
+  'выиграл получи деньги',
+  // Прямые эфиры (все платформы)
+  'заработок прямой эфир live',
+  'инвестиции прямой эфир',
 ];
 
 // yt-dlp binary candidates (Windows paths + PATH)
@@ -49,6 +75,7 @@ const YTDLP_CANDIDATES = [
 // ── Scanner state (read by /api/scanner/status) ───────────────────────────────
 export const scannerState = {
   running:          false,
+  paused:           false,   // user explicitly stopped — skip scheduled cycles
   lastRunAt:        null,
   lastRunDurationS: null,
   nextRunAt:        null,
@@ -286,6 +313,10 @@ async function runCycle() {
     console.log('[scanner] Still running, skipping cycle');
     return;
   }
+  if (scannerState.paused) {
+    console.log('[scanner] Paused, skipping cycle');
+    return;
+  }
 
   scannerState.running = true;
   scannerState.lastRunAt = new Date().toISOString();
@@ -327,6 +358,19 @@ async function runCycle() {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 let scanTimer = null;
+
+export function pauseScanner() {
+  scannerState.paused = true;
+  scannerState.nextRunAt = null;
+  console.log('[scanner] Paused by user');
+}
+
+export function resumeScanner() {
+  scannerState.paused = false;
+  scannerState.nextRunAt = new Date(Date.now() + 5000).toISOString();
+  console.log('[scanner] Resumed by user — running in 5s');
+  setTimeout(runCycle, 5000);
+}
 
 export function startAutonomousScanner() {
   if (scanTimer) return;
