@@ -17,6 +17,7 @@ interface ScannerStatus {
   currentKeyword: string | null;
   lastError: string | null;
   recentFindings: Finding[];
+  byPlatform: Record<string, number>;
 }
 
 interface Finding {
@@ -100,6 +101,14 @@ export default function AutonomousScanner() {
     safe:    'text-green-400',
   };
 
+  const platformMeta: Record<string, { label: string; color: string; icon: string }> = {
+    youtube: { label: 'YouTube',   color: '#ff5640', icon: 'smart_display'  },
+    tiktok:  { label: 'TikTok',    color: '#9aa0a6', icon: 'videocam'       },
+    vk:      { label: 'ВКонтакте', color: '#4c75a3', icon: 'group'          },
+    rutube:  { label: 'Rutube',    color: '#ff6b35', icon: 'play_circle'    },
+    ok:      { label: 'OK.ru',     color: '#f5a623', icon: 'star'           },
+  };
+
   return (
     <SidebarLayout>
       <div className="p-6 max-w-5xl mx-auto">
@@ -166,12 +175,12 @@ export default function AutonomousScanner() {
         </div>
 
         {/* Stats strip */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           {[
             { label: 'Проверено видео', value: status?.totalScanned ?? 0, icon: 'movie' },
             { label: 'Найдено угроз', value: status?.totalFound ?? 0, icon: 'warning', accent: true },
             { label: 'Последний запуск', value: fmt(status?.lastRunAt ?? null), icon: 'schedule' },
-            { label: 'Следующий через', value: status?.running ? 'идёт...' : countdown, icon: 'timer' },
+            { label: 'Следующий через', value: status?.running ? 'идёт...' : (status?.paused ? 'пауза' : countdown), icon: 'timer' },
           ].map((s) => (
             <div key={s.label} className="bg-surface-container border border-outline-variant/30 rounded-2xl p-4">
               <span className={`material-symbols-outlined text-[20px] mb-2 block ${s.accent ? 'text-error' : 'text-on-surface-variant'}`} style={sym}>{s.icon}</span>
@@ -180,6 +189,31 @@ export default function AutonomousScanner() {
             </div>
           ))}
         </div>
+
+        {/* Platform breakdown */}
+        {status && (
+          <div className="bg-surface-container border border-outline-variant/30 rounded-2xl p-4 mb-4">
+            <div className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-3">Найдено по платформам</div>
+            <div className="flex flex-wrap gap-3">
+              {[
+                { id: 'youtube', label: 'YouTube',   color: '#ff5640' },
+                { id: 'tiktok',  label: 'TikTok',    color: '#9aa0a6' },
+                { id: 'vk',      label: 'ВКонтакте', color: '#4c75a3' },
+                { id: 'rutube',  label: 'Rutube',    color: '#ff6b35' },
+                { id: 'ok',      label: 'OK.ru',     color: '#f5a623' },
+              ].map(p => {
+                const count = status.byPlatform?.[p.id] ?? 0;
+                return (
+                  <div key={p.id} className="flex items-center gap-2 bg-surface-container-high rounded-xl px-3 py-2">
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: p.color }} />
+                    <span className="text-xs text-on-surface-variant">{p.label}</span>
+                    <span className={`text-sm font-bold ml-1 ${count > 0 ? 'text-error' : 'text-on-surface-variant'}`}>{count}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Current activity */}
         {status?.running && (
@@ -311,6 +345,20 @@ export default function AutonomousScanner() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2 flex-wrap">
+                          {/* Platform badge */}
+                          {platformMeta[f.platform] && (
+                            <span
+                              className="flex items-center gap-1 text-[10px] font-bold rounded-full px-2 py-0.5"
+                              style={{
+                                color: platformMeta[f.platform].color,
+                                background: platformMeta[f.platform].color + '18',
+                                border: `1px solid ${platformMeta[f.platform].color}33`,
+                              }}
+                            >
+                              <span className="material-symbols-outlined text-[11px]" style={sym}>{platformMeta[f.platform].icon}</span>
+                              {platformMeta[f.platform].label}
+                            </span>
+                          )}
                           {f.isLive && (
                             <span className="text-[10px] font-bold text-red-400 bg-red-400/10 border border-red-400/25 rounded-full px-2 py-0.5">
                               ● LIVE

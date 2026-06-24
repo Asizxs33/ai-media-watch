@@ -75,7 +75,7 @@ const YTDLP_CANDIDATES = [
 // ── Scanner state (read by /api/scanner/status) ───────────────────────────────
 export const scannerState = {
   running:          false,
-  paused:           false,   // user explicitly stopped — skip scheduled cycles
+  paused:           false,
   lastRunAt:        null,
   lastRunDurationS: null,
   nextRunAt:        null,
@@ -83,7 +83,11 @@ export const scannerState = {
   totalFound:       0,
   currentKeyword:   null,
   lastError:        null,
-  recentFindings:   [],  // last 50 fraud detections
+  recentFindings:   [],
+  // per-platform counters
+  byPlatform: {
+    youtube: 0, tiktok: 0, vk: 0, rutube: 0, ok: 0,
+  },
 };
 
 // URLs already analyzed in this server session — avoid re-scanning
@@ -110,16 +114,26 @@ function killProcess(proc) {
   } catch {}
 }
 
-// ── Search ────────────────────────────────────────────────────────────────────
+// ── Platform definitions ──────────────────────────────────────────────────────
+// Each entry: yt-dlp search prefix + platform id used in DB/UI
+const PLATFORMS = [
+  { prefix: 'ytsearch',      id: 'youtube',   label: 'YouTube'   },
+  { prefix: 'ttsearch',      id: 'tiktok',    label: 'TikTok'    },
+  { prefix: 'vksearch',      id: 'vk',        label: 'ВКонтакте' },
+  { prefix: 'rutube_search', id: 'rutube',    label: 'Rutube'    },
+  { prefix: 'oksearch',      id: 'ok',        label: 'OK.ru'     },
+];
+
+// ── Generic platform search ───────────────────────────────────────────────────
 /**
- * Search YouTube via yt-dlp flat-playlist JSON output.
- * Returns array of video metadata objects.
+ * Search any platform supported by yt-dlp via its search prefix.
+ * Returns array of video metadata. Empty array on any error.
  */
-async function searchYouTube(query, limit = 15) {
+async function searchPlatform(prefix, platformId, query, limit = 8) {
   return new Promise((resolve) => {
     const results = [];
     const proc = spawnYtDlp([
-      `ytsearch${limit}:${query}`,
+      `${prefix}${limit}:${query}`,
       '--flat-playlist', '--dump-json', '--no-download',
       '--quiet', '--no-warnings',
     ]);
@@ -130,19 +144,22 @@ async function searchYouTube(query, limit = 15) {
         const v = JSON.parse(line.trim());
         if (!v?.id) return;
         results.push({
-          id:         v.id,
-          url:        v.webpage_url || `https://www.youtube.com/watch?v=${v.id}`,
-          title:      v.title || '',
-          uploader:   v.uploader || v.channel || '',
-          isLive:     v.is_live === true || v.live_status === 'is_live',
-          duration:   v.duration || 0,
-          viewCount:  v.view_count || 0,
-          thumbnail:  v.thumbnail || '',
+          id:        v.id,
+          url:       v.webpage_url || v.url || '',
+          title:     v.title || '',
+          uploader:  v.uploader || v.channel || v.uploader_id || '',
+          isLive:    v.is_live === true || v.live_status === 'is_live',
+          duration:  v.duration || 0,
+          viewCount: v.view_count || 0,
+          thumbnail: v.thumbnail || '',
+          platform:  platformId,
         });
       } catch {}
     });
 
-    const timer = setTimeout(() => { killProcess(proc); resolve(results); }, 60_000);
+    // Per-platform timeout: some platforms are slower
+    const ms = platformId === 'youtube' ? 60_000 : 45_000;
+    const timer = setTimeout(() => { killProcess(proc); resolve(results); }, ms);
     proc.on('close', () => { clearTimeout(timer); resolve(results); });
   });
 }
@@ -259,7 +276,7 @@ async function scanOne(video, keyword) {
 
     // Classify — even if no transcript (title analysis alone may be enough)
     const cls = await classifyContent({
-      platform: 'youtube',
+      platform:  video.platform,
       username:  video.uploader,
       caption:   video.title,
       transcript,
@@ -272,8 +289,8 @@ async function scanOne(video, keyword) {
     }
 
     const finding = {
-      id:          `auto-yt-${video.id}-${Date.now()}`,
-      platform:    'youtube',
+      id:          `auto-${video.platform}-${video.id}-${Date.now()}`,
+      platform:    video.platform,
       url:         video.url,
       username:    video.uploader,
       title:       video.title,
@@ -297,6 +314,7 @@ async function scanOne(video, keyword) {
     scannerState.recentFindings.unshift(finding);
     if (scannerState.recentFindings.length > 50) scannerState.recentFindings.pop();
     scannerState.totalFound++;
+    if (video.platform in scannerState.byPlatform) scannerState.byPlatform[video.platform]++;
 
     const ts = cls.fraudTimestamps?.length ? ` | timestamps: ${cls.fraudTimestamps.join(', ')}` : '';
     console.log(`[scanner] 🚨 FOUND risk=${cls.riskScore}% cat=${cls.category}${ts} — "${video.title.slice(0, 50)}"`);
@@ -326,22 +344,37 @@ async function runCycle() {
 
   try {
     for (const keyword of FRAUD_KEYWORDS) {
+      if (scannerState.paused) break;
       scannerState.currentKeyword = keyword;
-      console.log(`[scanner] Keyword: "${keyword}"`);
+      console.log(`[scanner] Keyword: "${keyword}" — searching ${PLATFORMS.length} platforms in parallel`);
 
-      const videos = await searchYouTube(keyword, MAX_PER_KEYWORD * 3);
+      // Search all platforms simultaneously
+      const settled = await Promise.allSettled(
+        PLATFORMS.map(p => searchPlatform(p.prefix, p.id, keyword, MAX_PER_KEYWORD * 2))
+      );
 
-      // Prioritize live streams, then sort by view count (more views = more victims)
-      const live    = videos.filter(v => v.isLive);
-      const regular = videos.filter(v => !v.isLive && v.duration >= 60)
-                            .sort((a, b) => b.viewCount - a.viewCount);
-      const toScan  = [...live, ...regular].slice(0, MAX_PER_KEYWORD);
+      const allVideos = settled.flatMap((r, i) => {
+        if (r.status === 'rejected') {
+          console.warn(`[scanner]   ${PLATFORMS[i].label} search failed:`, r.reason?.message);
+          return [];
+        }
+        const found = r.value.filter(v => v.url);
+        if (found.length) console.log(`[scanner]   ${PLATFORMS[i].label}: ${found.length} results (${found.filter(v => v.isLive).length} live)`);
+        return found;
+      });
 
-      console.log(`[scanner]   ${videos.length} results → scanning ${toScan.length} (${live.length} live)`);
+      // Prioritize: live first, then sort by viewCount (more viewers = more potential victims)
+      const live    = allVideos.filter(v => v.isLive);
+      const regular = allVideos.filter(v => !v.isLive && v.duration >= 30)
+                               .sort((a, b) => b.viewCount - a.viewCount);
+      const toScan  = [...live, ...regular].slice(0, MAX_PER_KEYWORD * PLATFORMS.length);
+
+      console.log(`[scanner]   Total: ${allVideos.length} → scanning ${toScan.length} (${live.length} live)`);
 
       for (const v of toScan) {
+        if (scannerState.paused) break;
         await scanOne(v, keyword);
-        await new Promise(r => setTimeout(r, 1500)); // brief rate-limit pause
+        await new Promise(r => setTimeout(r, 1000));
       }
     }
   } catch (err) {
