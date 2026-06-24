@@ -102,11 +102,8 @@ export default function AutonomousScanner() {
   };
 
   const platformMeta: Record<string, { label: string; color: string; icon: string }> = {
-    youtube: { label: 'YouTube',   color: '#ff5640', icon: 'smart_display'  },
-    tiktok:  { label: 'TikTok',    color: '#9aa0a6', icon: 'videocam'       },
-    vk:      { label: 'ВКонтакте', color: '#4c75a3', icon: 'group'          },
-    rutube:  { label: 'Rutube',    color: '#ff6b35', icon: 'play_circle'    },
-    ok:      { label: 'OK.ru',     color: '#f5a623', icon: 'star'           },
+    youtube: { label: 'YouTube', color: '#ff5640', icon: 'smart_display' },
+    rutube:  { label: 'Rutube',  color: '#ff6b35', icon: 'play_circle'   },
   };
 
   return (
@@ -196,11 +193,8 @@ export default function AutonomousScanner() {
             <div className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-3">Найдено по платформам</div>
             <div className="flex flex-wrap gap-3">
               {[
-                { id: 'youtube', label: 'YouTube',   color: '#ff5640' },
-                { id: 'tiktok',  label: 'TikTok',    color: '#9aa0a6' },
-                { id: 'vk',      label: 'ВКонтакте', color: '#4c75a3' },
-                { id: 'rutube',  label: 'Rutube',    color: '#ff6b35' },
-                { id: 'ok',      label: 'OK.ru',     color: '#f5a623' },
+                { id: 'youtube', label: 'YouTube', color: '#ff5640' },
+                { id: 'rutube',  label: 'Rutube',  color: '#ff6b35' },
               ].map(p => {
                 const count = status.byPlatform?.[p.id] ?? 0;
                 return (

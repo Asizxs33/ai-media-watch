@@ -15,6 +15,7 @@ import { unlink, readFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline';
+import https from 'node:https';
 import { formatSegments } from './transcriber.js';
 import { classifyContent, classifyImage } from './classifier.js';
 import { savePost } from './db.js';
@@ -84,9 +85,9 @@ export const scannerState = {
   currentKeyword:   null,
   lastError:        null,
   recentFindings:   [],
-  // per-platform counters
+  // per-platform counters (only platforms with working search)
   byPlatform: {
-    youtube: 0, tiktok: 0, vk: 0, rutube: 0, ok: 0,
+    youtube: 0, rutube: 0,
   },
 };
 
@@ -114,30 +115,20 @@ function killProcess(proc) {
   } catch {}
 }
 
-// ── Platform definitions ──────────────────────────────────────────────────────
-// Each entry: yt-dlp search prefix + platform id used in DB/UI
-const PLATFORMS = [
-  { prefix: 'ytsearch',      id: 'youtube',   label: 'YouTube'   },
-  { prefix: 'ttsearch',      id: 'tiktok',    label: 'TikTok'    },
-  { prefix: 'vksearch',      id: 'vk',        label: 'ВКонтакте' },
-  { prefix: 'rutube_search', id: 'rutube',    label: 'Rutube'    },
-  { prefix: 'oksearch',      id: 'ok',        label: 'OK.ru'     },
-];
+// ── Platform search ───────────────────────────────────────────────────────────
+// yt-dlp only has a YouTube search extractor (ytsearch).
+// TikTok/VK/OK.ru have no search extractors and anti-bot protection.
+// Rutube has a public REST API — we use that directly.
 
-// ── Generic platform search ───────────────────────────────────────────────────
-/**
- * Search any platform supported by yt-dlp via its search prefix.
- * Returns array of video metadata. Empty array on any error.
- */
-async function searchPlatform(prefix, platformId, query, limit = 8) {
+/** Search YouTube via yt-dlp ytsearch extractor */
+async function searchYouTube(query, limit = 8) {
   return new Promise((resolve) => {
     const results = [];
     const proc = spawnYtDlp([
-      `${prefix}${limit}:${query}`,
+      `ytsearch${limit}:${query}`,
       '--flat-playlist', '--dump-json', '--no-download',
       '--quiet', '--no-warnings',
     ]);
-
     const rl = createInterface({ input: proc.stdout });
     rl.on('line', (line) => {
       try {
@@ -145,22 +136,56 @@ async function searchPlatform(prefix, platformId, query, limit = 8) {
         if (!v?.id) return;
         results.push({
           id:        v.id,
-          url:       v.webpage_url || v.url || '',
+          url:       v.webpage_url || v.url || `https://www.youtube.com/watch?v=${v.id}`,
           title:     v.title || '',
           uploader:  v.uploader || v.channel || v.uploader_id || '',
           isLive:    v.is_live === true || v.live_status === 'is_live',
           duration:  v.duration || 0,
           viewCount: v.view_count || 0,
           thumbnail: v.thumbnail || '',
-          platform:  platformId,
+          platform:  'youtube',
         });
       } catch {}
     });
-
-    // Per-platform timeout: some platforms are slower
-    const ms = platformId === 'youtube' ? 60_000 : 45_000;
-    const timer = setTimeout(() => { killProcess(proc); resolve(results); }, ms);
+    const timer = setTimeout(() => { killProcess(proc); resolve(results); }, 60_000);
     proc.on('close', () => { clearTimeout(timer); resolve(results); });
+  });
+}
+
+/**
+ * Search Rutube via their public REST API.
+ * Requires no auth. Returns same video-object shape as searchYouTube.
+ */
+async function searchRutube(query, limit = 8) {
+  return new Promise((resolve) => {
+    const q   = encodeURIComponent(query);
+    const url = `https://rutube.ru/api/search/video/?query=${q}&page=1&per_page=${limit}&format=json`;
+    const req = https.get(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
+      timeout: 20_000,
+    }, (res) => {
+      let raw = '';
+      res.on('data', c => { raw += c; });
+      res.on('end', () => {
+        try {
+          const data = JSON.parse(raw);
+          const results = (data.results || []).map(v => ({
+            id:        v.id,
+            url:       `https://rutube.ru/video/${v.id}/`,
+            title:     v.title || '',
+            uploader:  v.author?.name || v.author?.id || '',
+            isLive:    v.is_livestream === true,
+            duration:  v.duration || 0,
+            viewCount: v.hits || 0,
+            thumbnail: v.thumbnail_url || '',
+            platform:  'rutube',
+          }));
+          resolve(results);
+        } catch { resolve([]); }
+      });
+    });
+    req.on('error', () => resolve([]));
+    req.on('timeout', () => { req.destroy(); resolve([]); });
   });
 }
 
@@ -431,28 +456,30 @@ async function runCycle() {
     for (const keyword of FRAUD_KEYWORDS) {
       if (scannerState.paused) break;
       scannerState.currentKeyword = keyword;
-      console.log(`[scanner] Keyword: "${keyword}" — searching ${PLATFORMS.length} platforms in parallel`);
+      console.log(`[scanner] Keyword: "${keyword}" — YouTube + Rutube`);
 
-      // Search all platforms simultaneously
-      const settled = await Promise.allSettled(
-        PLATFORMS.map(p => searchPlatform(p.prefix, p.id, keyword, MAX_PER_KEYWORD * 2))
-      );
+      // Search YouTube and Rutube in parallel
+      const [ytResult, ruResult] = await Promise.allSettled([
+        searchYouTube(keyword, MAX_PER_KEYWORD * 2),
+        searchRutube(keyword,  MAX_PER_KEYWORD * 2),
+      ]);
 
-      const allVideos = settled.flatMap((r, i) => {
-        if (r.status === 'rejected') {
-          console.warn(`[scanner]   ${PLATFORMS[i].label} search failed:`, r.reason?.message);
-          return [];
-        }
-        const found = r.value.filter(v => v.url);
-        if (found.length) console.log(`[scanner]   ${PLATFORMS[i].label}: ${found.length} results (${found.filter(v => v.isLive).length} live)`);
-        return found;
-      });
+      const ytVideos = ytResult.status === 'fulfilled' ? ytResult.value.filter(v => v.url) : [];
+      const ruVideos = ruResult.status === 'fulfilled' ? ruResult.value.filter(v => v.url) : [];
+
+      if (ytVideos.length) console.log(`[scanner]   YouTube: ${ytVideos.length} results (${ytVideos.filter(v => v.isLive).length} live)`);
+      else if (ytResult.status === 'rejected') console.warn('[scanner]   YouTube search failed:', ytResult.reason?.message);
+
+      if (ruVideos.length) console.log(`[scanner]   Rutube:  ${ruVideos.length} results (${ruVideos.filter(v => v.isLive).length} live)`);
+      else if (ruResult.status === 'rejected') console.warn('[scanner]   Rutube search failed:', ruResult.reason?.message);
+
+      const allVideos = [...ytVideos, ...ruVideos];
 
       // Prioritize: live first, then sort by viewCount (more viewers = more potential victims)
       const live    = allVideos.filter(v => v.isLive);
       const regular = allVideos.filter(v => !v.isLive && v.duration >= 30)
                                .sort((a, b) => b.viewCount - a.viewCount);
-      const toScan  = [...live, ...regular].slice(0, MAX_PER_KEYWORD * PLATFORMS.length);
+      const toScan  = [...live, ...regular].slice(0, MAX_PER_KEYWORD * 3);
 
       console.log(`[scanner]   Total: ${allVideos.length} → scanning ${toScan.length} (${live.length} live)`);
 
