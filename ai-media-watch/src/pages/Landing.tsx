@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { SpectraLogo } from '../components/ui/SpectraLogo';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -129,20 +130,7 @@ export default function Landing() {
       {/* ══ NAV ══ */}
       <nav className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-5 md:px-8 py-4 bg-background/70 backdrop-blur-xl border-b border-white/[0.06]">
         <Link to="/" className="flex items-center gap-2.5">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="32" height="32">
-            <defs>
-              <linearGradient id="pg_nav" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#a855f7"/>
-                <stop offset="100%" stopColor="#6d28d9"/>
-              </linearGradient>
-            </defs>
-            <polygon points="24,3 44,42 4,42" fill="url(#pg_nav)" stroke="#c084fc" strokeWidth="1"/>
-            <line x1="44" y1="42" x2="48" y2="28" stroke="#ef4444" strokeWidth="2.2" strokeLinecap="round"/>
-            <line x1="44" y1="42" x2="48" y2="33" stroke="#f97316" strokeWidth="2.2" strokeLinecap="round"/>
-            <line x1="44" y1="42" x2="48" y2="39" stroke="#eab308" strokeWidth="2.2" strokeLinecap="round"/>
-            <line x1="44" y1="42" x2="48" y2="45" stroke="#22c55e" strokeWidth="2.2" strokeLinecap="round"/>
-            <line x1="44" y1="42" x2="46" y2="51" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round"/>
-          </svg>
+          <SpectraLogo size={32} />
           <span className="num-display text-base">SPECTRA AI</span>
         </Link>
         <div className="hidden md:flex items-center gap-7 text-xs text-on-surface-variant tracking-widest uppercase font-code-sm">
