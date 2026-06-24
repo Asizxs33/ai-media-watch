@@ -3,7 +3,7 @@ import { promisify } from 'util';
 import { existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { unlink } from 'fs/promises';
+import { unlink, writeFile } from 'fs/promises';
 
 const execFileAsync = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -94,6 +94,24 @@ async function ytDlpAvailable() {
     return true;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Transcribe raw audio buffer (base64) sent from browser extension.
+ * Used for live video capture via MediaRecorder / captureStream().
+ */
+export async function transcribeBuffer(base64, ext = 'webm') {
+  const tmpPath = join(TMP_DIR, `chunk_${Date.now()}.${ext}`);
+  await writeFile(tmpPath, Buffer.from(base64, 'base64'));
+  try {
+    let text = transcribeLocal(tmpPath);
+    if (!text && process.env.OPENAI_API_KEY) {
+      text = await transcribeOpenAI(tmpPath);
+    }
+    return text;
+  } finally {
+    await unlink(tmpPath).catch(() => {});
   }
 }
 

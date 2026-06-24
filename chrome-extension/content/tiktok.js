@@ -8,6 +8,7 @@
   const PLATFORM = 'tiktok';
   let stopTracking = window.AMW.startTimeTracking(PLATFORM);
   let lastKey = '';
+  let stopWatcher = null;
 
   function extractVideo() {
     const desc =
@@ -51,12 +52,13 @@
     // Combine all text; if still empty — URL-only analysis (backend will scrape)
     const text = [desc, comments].filter(Boolean).join('\n').slice(0, 2500);
 
+    if (stopWatcher) stopWatcher();
     const result = await window.AMW.classifyDeep({ platform: PLATFORM, text, username: user, url });
-    if (!result) return;
+    if (result && (result.riskScore ?? 0) >= 0.65) window.AMW.showWarning(result, PLATFORM);
 
-    if ((result.riskScore ?? 0) >= 0.65) {
-      window.AMW.showWarning(result, PLATFORM);
-    }
+    // Start live audio+frame watcher while user watches
+    await new Promise(r => setTimeout(r, 1000));
+    stopWatcher = window.AMW.startVideoWatcher(PLATFORM, url);
   }
 
   // URL observer (TikTok is SPA)

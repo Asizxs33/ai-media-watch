@@ -8,6 +8,7 @@
   const PLATFORM = 'youtube';
   let lastUrl = '';
   let stopTracking = null;
+  let stopWatcher = null;
 
   function extractVideo() {
     const title =
@@ -51,11 +52,13 @@
     if (!text) return;
 
     const result = await window.AMW.classifyDeep({ platform: PLATFORM, text, username: channel, url });
-    if (!result) return;
-
-    if ((result.riskScore ?? 0) >= 0.65) {
+    if (result && (result.riskScore ?? 0) >= 0.65) {
       window.AMW.showWarning(result, PLATFORM);
     }
+
+    // Start live audio+video watcher regardless of initial score
+    await new Promise(r => setTimeout(r, 1000));
+    stopWatcher = window.AMW.startVideoWatcher(PLATFORM, url);
   }
 
   function onNav() {
@@ -66,6 +69,8 @@
     // Reset time tracking on each navigation
     if (stopTracking) stopTracking();
     stopTracking = window.AMW.startTimeTracking(PLATFORM);
+    if (stopWatcher) stopWatcher();
+    stopWatcher = null;
 
     analyzeVideo(url);
   }

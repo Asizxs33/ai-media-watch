@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { classifyContent, classifyImage } from '../services/classifier.js';
 import { scrapePageText, detectPlatform } from '../services/scraper.js';
-import { transcribeFromUrl } from '../services/transcriber.js';
+import { transcribeFromUrl, transcribeBuffer } from '../services/transcriber.js';
 import { savePost } from '../services/db.js';
 
 export const analyzeRouter = Router();
@@ -52,6 +52,35 @@ analyzeRouter.post('/text', async (req, res) => {
     return res.json({ success: true, source: 'text', ...result });
   } catch (err) {
     console.error('[/text]', err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * POST /api/analyze/audio-chunk
+ * Receive live audio captured by extension via MediaRecorder, transcribe and classify.
+ * Body: { base64, mimeType, platform, url }
+ */
+analyzeRouter.post('/audio-chunk', async (req, res) => {
+  const { base64, mimeType = 'audio/webm', platform = 'unknown', url = '' } = req.body;
+  if (!base64) return res.status(400).json({ success: false, error: 'base64 обязателен' });
+
+  const ext = mimeType.includes('ogg') ? 'ogg' : 'webm';
+
+  try {
+    console.log(`[/audio-chunk] Transcribing ${Math.round(base64.length * 0.75 / 1024)}KB from ${platform}`);
+    const transcript = await transcribeBuffer(base64, ext);
+
+    if (!transcript || transcript.trim().length < 5) {
+      return res.json({ success: true, skipped: true, reason: 'empty transcript' });
+    }
+
+    console.log(`[/audio-chunk] Transcript (${transcript.length} chars): ${transcript.slice(0, 100)}`);
+    const result = await classifyContent({ platform, transcript, caption: transcript });
+
+    return res.json({ success: true, source: 'live-audio', transcript: transcript.slice(0, 500), ...result });
+  } catch (err) {
+    console.error('[/audio-chunk]', err.message);
     return res.status(500).json({ success: false, error: err.message });
   }
 });

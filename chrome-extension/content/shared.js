@@ -328,6 +328,98 @@
       return { ...textResult, imageAnalyzed: !!imageBase64, imageRiskScore: ir };
     },
 
+    async classifyAudioChunk({ base64, mimeType, platform, url }) {
+      return new Promise(resolve => {
+        safeSend({ type: 'CLASSIFY_AUDIO_CHUNK', base64, mimeType, platform, url }, resp => {
+          resolve(resp?.ok ? resp.result : null);
+        });
+      });
+    },
+
+    // Watch video like a human: capture live audio chunks + periodic video frames
+    startVideoWatcher(platform, url) {
+      const video = document.querySelector('video');
+      if (!video) return null;
+
+      const alerted = new Set();
+      const FRAME_INTERVAL = 20000;  // visual check every 20s
+      const CHUNK_MS = 28000;        // audio chunk every 28s
+
+      const maybeWarn = (result, key) => {
+        if (!result || alerted.has(key)) return;
+        if ((result.riskScore ?? 0) >= 0.65) {
+          alerted.add(key);
+          window.AMW.showWarning(result, platform);
+        }
+      };
+
+      // ── Periodic video frame → Claude Vision ──
+      const frameTimer = setInterval(async () => {
+        if (document.hidden || video.paused) return;
+        const imageBase64 = window.AMW.captureVideoFrame();
+        if (!imageBase64) return;
+        const key = `frame-${Math.floor(video.currentTime / 20)}`;
+        if (alerted.has(key)) return;
+        const result = await window.AMW.classifyImage(imageBase64);
+        maybeWarn(result, key);
+      }, FRAME_INTERVAL);
+
+      // ── Live audio capture → Whisper → Claude ──
+      let chunkTimer = null;
+      let recorder = null;
+
+      try {
+        const stream = video.captureStream ? video.captureStream() : null;
+        if (!stream || stream.getAudioTracks().length === 0) return () => clearInterval(frameTimer);
+
+        const audioStream = new MediaStream(stream.getAudioTracks());
+        const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg']
+          .find(t => MediaRecorder.isTypeSupported(t)) || 'audio/webm';
+
+        const chunks = [];
+
+        const sendChunk = async () => {
+          if (!chunks.length) return;
+          const blob = new Blob(chunks.splice(0), { type: mimeType });
+          if (blob.size < 8000) return; // skip near-silence
+
+          const buf = await blob.arrayBuffer();
+          const u8 = new Uint8Array(buf);
+          let bin = '';
+          for (let i = 0; i < u8.length; i += 8192) {
+            bin += String.fromCharCode(...u8.subarray(i, Math.min(i + 8192, u8.length)));
+          }
+          const base64 = btoa(bin);
+          const key = `audio-${Math.floor(Date.now() / CHUNK_MS)}`;
+          const result = await window.AMW.classifyAudioChunk({ base64, mimeType, platform, url });
+          maybeWarn(result, key);
+        };
+
+        recorder = new MediaRecorder(audioStream, { mimeType, audioBitsPerSecond: 32000 });
+        recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+        recorder.onstop = sendChunk;
+
+        const startChunk = () => {
+          if (recorder.state !== 'inactive') return;
+          recorder.start();
+          setTimeout(() => { if (recorder.state === 'recording') recorder.stop(); }, CHUNK_MS);
+        };
+
+        video.addEventListener('play', startChunk);
+        chunkTimer = setInterval(() => { if (!video.paused && !document.hidden) startChunk(); }, CHUNK_MS);
+        if (!video.paused) startChunk();
+
+      } catch (e) {
+        console.warn('[AMW] captureStream failed:', e.message);
+      }
+
+      return () => {
+        clearInterval(frameTimer);
+        clearInterval(chunkTimer);
+        try { if (recorder?.state !== 'inactive') recorder.stop(); } catch {}
+      };
+    },
+
     startTimeTracking(platform) {
       const MILESTONES = [15, 30, 60, 90, 120];
       const notified = new Set();
