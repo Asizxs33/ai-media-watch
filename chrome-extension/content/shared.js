@@ -7,6 +7,14 @@
 
   if (window.AMW) return; // already loaded
 
+  // Safe sendMessage — silently ignores "Extension context invalidated" errors
+  function safeSend(msg, cb) {
+    try {
+      if (!chrome.runtime?.id) return;
+      chrome.runtime.sendMessage(msg, cb ?? (() => { void chrome.runtime.lastError; }));
+    } catch (_) { /* extension reloaded, context gone */ }
+  }
+
   // ── Inject styles ────────────────────────────────────────────
   const style = document.createElement('style');
   style.id = 'amw-styles';
@@ -141,7 +149,7 @@
       if (document.getElementById('amw-fraud-overlay')) return;
 
       // Auto-save detection to backend DB (fire and forget)
-      chrome.runtime.sendMessage({
+      safeSend({
         type: 'REPORT_TO_DB',
         payload: {
           url: location.href,
@@ -187,8 +195,8 @@
 
       document.getElementById('amw-back-btn').addEventListener('click', () => {
         // Save to local blocklist + update DB status to 'blocked'
-        chrome.runtime.sendMessage({ type: 'BLOCK_URL', url: location.href });
-        chrome.runtime.sendMessage({
+        safeSend({ type: 'BLOCK_URL', url: location.href });
+        safeSend({
           type: 'REPORT_TO_DB',
           payload: {
             url: location.href,
@@ -221,7 +229,7 @@
         overlay.remove();
       });
 
-      chrome.runtime.sendMessage({ type: 'RECORD_BLOCKED', platform });
+      safeSend({ type: 'RECORD_BLOCKED', platform });
     },
 
     showTimeBanner(platform, minutes) {
@@ -262,7 +270,7 @@
     // Check if this URL was previously blocked by user
     async isBlocked(url) {
       return new Promise(resolve => {
-        chrome.runtime.sendMessage({ type: 'CHECK_BLOCKED_URL', url }, r => {
+        safeSend({ type: 'CHECK_BLOCKED_URL', url }, r => {
           resolve(r?.blocked ?? false);
         });
       });
@@ -270,7 +278,7 @@
 
     async classify(payload) {
       return new Promise((resolve) => {
-        chrome.runtime.sendMessage({ type: 'CLASSIFY', payload }, (resp) => {
+        safeSend({ type: 'CLASSIFY', payload }, (resp) => {
           if (chrome.runtime.lastError || !resp?.ok) { resolve(null); return; }
           resolve(resp.result);
         });
@@ -293,7 +301,7 @@
 
     async classifyImage(imageBase64) {
       return new Promise((resolve) => {
-        chrome.runtime.sendMessage({ type: 'CLASSIFY_IMAGE', imageBase64, mediaType: 'image/jpeg' }, (resp) => {
+        safeSend({ type: 'CLASSIFY_IMAGE', imageBase64, mediaType: 'image/jpeg' }, (resp) => {
           if (chrome.runtime.lastError || !resp?.ok) { resolve(null); return; }
           resolve(resp.result);
         });
@@ -339,7 +347,7 @@
 
         // Sync to background every 30s
         if (accum >= 30) {
-          chrome.runtime.sendMessage({ type: 'TRACK_TIME', platform, seconds: accum });
+          safeSend({ type: 'TRACK_TIME', platform, seconds: accum });
           accum = 0;
         }
 
@@ -354,7 +362,7 @@
 
         // Check hard limit (once per minute)
         if (sessionSec % 60 < elapsed) {
-          chrome.runtime.sendMessage({ type: 'CHECK_TIME_LIMIT', platform }, (resp) => {
+          safeSend({ type: 'CHECK_TIME_LIMIT', platform }, (resp) => {
             if (resp?.exceeded) window.AMW.showLimitOverlay(platform, resp.limit);
           });
         }
