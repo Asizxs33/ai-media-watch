@@ -10,6 +10,7 @@
  * Типы событий: status | found | result | error | done
  */
 import { Router } from 'express';
+import { spawnSync } from 'node:child_process';
 import { YoutubeTranscript } from 'youtube-transcript';
 import { searchYoutube, searchTiktok } from '../services/search.js';
 import { classifyContent } from '../services/classifier.js';
@@ -42,6 +43,66 @@ async function fetchYouTubeCaptions(videoId) {
 function ytVideoId(url = '') {
   const m = url.match(/(?:v=|youtu\.be\/|embed\/)([A-Za-z0-9_-]{11})/);
   return m ? m[1] : null;
+}
+
+/** Extract TikTok video ID from URL */
+function tiktokVideoId(url = '') {
+  const m = url.match(/\/video\/(\d+)/);
+  return m ? m[1] : null;
+}
+
+/**
+ * Try to get TikTok auto-captions via yt-dlp dump-json.
+ * TikTok sometimes blocks server IPs — fails gracefully, caller falls back to Whisper.
+ */
+async function fetchTikTokCaptions(url) {
+  const YTDLP = 'C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python312\\Scripts\\yt-dlp.exe';
+  const candidates = [YTDLP, 'yt-dlp'];
+
+  let meta = null;
+  for (const bin of candidates) {
+    const r = spawnSync(bin, ['--dump-json', '--no-playlist', '--no-warnings', url], {
+      encoding: 'utf8', timeout: 25000,
+    });
+    if (r.status === 0 && r.stdout?.trim()) { meta = r.stdout.trim(); break; }
+  }
+  if (!meta) return null;
+
+  let info;
+  try { info = JSON.parse(meta); } catch { return null; }
+
+  const autoCaps = info.automatic_captions ?? {};
+  const lang = autoCaps['ru'] ? 'ru' : autoCaps['en'] ? 'en' : Object.keys(autoCaps)[0];
+  if (!lang) return null;
+
+  const tracks = autoCaps[lang] ?? [];
+  const track  = tracks.find(t => t.ext === 'json3') ?? tracks[0];
+  if (!track?.url) return null;
+
+  try {
+    const res = await fetch(track.url);
+    if (!res.ok) return null;
+    const raw = await res.text();
+
+    // JSON3 format: { events: [{ tStartMs, dDurationMs, segs: [{ utf8 }] }] }
+    const data = JSON.parse(raw);
+    const segments = (data.events ?? [])
+      .filter(e => e.segs?.some(s => s.utf8?.trim()))
+      .map(e => {
+        const start = (e.tStartMs ?? 0) / 1000;
+        const end   = ((e.tStartMs ?? 0) + (e.dDurationMs ?? 2000)) / 1000;
+        const text  = e.segs.map(s => s.utf8 ?? '').join('').replace(/\n/g, ' ').trim();
+        const m     = Math.floor(start / 60);
+        const s     = Math.floor(start % 60);
+        return { start, end, text, ts: `${m}:${String(s).padStart(2, '0')}` };
+      })
+      .filter(s => s.text.length > 1);
+
+    if (!segments.length) return null;
+    return { segments, text: segments.map(s => s.text).join(' ') };
+  } catch {
+    return null;
+  }
 }
 
 // Transcribe only if initial risk score is above this threshold
@@ -435,7 +496,120 @@ async function runDeepScan({ keywords, limit }, emit, getAborted) {
         }
       }
     } catch (err) {
-      emit('error', { message: `Поиск не удался: ${err.message}` });
+      emit('error', { message: `YouTube поиск не удался: ${err.message}` });
+    }
+
+    // ── TikTok ────────────────────────────────────────────────────────────────
+    if (getAborted() || scanned >= cap) break;
+    try {
+      let ttScanned = 0;
+      for await (const video of searchTiktok(keyword, perKeyword * 4)) {
+        if (getAborted() || scanned >= cap) break;
+        if (video.duration > 0 && video.duration < 120) continue; // only long videos
+        if (ttScanned >= Math.ceil(cap / keywords.length / 2)) break; // TikTok gets half the slots
+        scanned++;
+        ttScanned++;
+
+        emit('found', {
+          id: `tt-${video.id}`,
+          url: video.url,
+          platform: 'tiktok',
+          title: video.title,
+          username: video.uploader,
+          thumbnail: video.thumbnail,
+          viewCount: video.viewCount,
+          duration: video.duration,
+          keyword,
+        });
+
+        try {
+          const text = [video.description, (video.tags ?? []).map(t => `#${t}`).join(' ')]
+            .filter(Boolean).join('\n');
+
+          // Stage 1: title check
+          const titleCls = await classifyContent({
+            platform: 'tiktok', username: video.uploader,
+            caption: video.title, scrapedText: text,
+          });
+
+          if (titleCls.riskScore < TITLE_SUSPICION_THRESHOLD) {
+            const safeResult = {
+              id: `tt-${video.id}`, url: video.url, platform: 'tiktok',
+              username: video.uploader, title: video.title, thumbnail: video.thumbnail,
+              viewCount: video.viewCount, duration: video.duration, keyword,
+              transcript: '', segments: [], fraudTimestamps: [],
+              transcriptSource: 'skipped', ...titleCls,
+            };
+            emit('result', safeResult);
+            saveScanResult(safeResult, 'deep').catch(() => {});
+            continue;
+          }
+
+          emit('status', {
+            message: `⚠️ TikTok подозрительный! Проверяю: "${(video.title || '').slice(0, 40)}…"`,
+            transcribingId: `tt-${video.id}`,
+          });
+
+          let segments = [], transcript = '', formattedTranscript = '', transcriptSource = 'none';
+
+          // Fast path: TikTok auto-captions via yt-dlp
+          try {
+            const cap = await fetchTikTokCaptions(video.url);
+            if (cap) {
+              transcript = cap.text; segments = cap.segments;
+              formattedTranscript = formatSegments(segments);
+              transcriptSource = 'captions';
+              console.log(`[deep/tt] captions OK: ${segments.length} segs`);
+            }
+          } catch (e) {
+            console.log(`[deep/tt] captions failed: ${e.message}`);
+          }
+
+          // Slow path: Whisper
+          if (!transcript) {
+            emit('status', {
+              message: `🎙 Whisper TikTok: "${(video.title || '').slice(0, 40)}…"`,
+              transcribingId: `tt-${video.id}`,
+            });
+            try {
+              const tr = await transcribeFromUrl(video.url);
+              if (tr?.text) {
+                transcript = tr.text; segments = tr.segments ?? [];
+                formattedTranscript = formatSegments(segments);
+                transcriptSource = 'whisper';
+              }
+            } catch (e) {
+              console.warn(`[deep/tt] whisper failed: ${e.message}`);
+            }
+          }
+
+          const cls = await classifyContent({
+            platform: 'tiktok', username: video.uploader,
+            caption: video.title, scrapedText: text,
+            transcript, formattedTranscript,
+          });
+
+          const result = {
+            id: `tt-${video.id}`, url: video.url, platform: 'tiktok',
+            username: video.uploader, title: video.title, thumbnail: video.thumbnail,
+            viewCount: video.viewCount, duration: video.duration, keyword,
+            transcript: transcript.slice(0, 5000), segments, transcriptSource,
+            fraudTimestamps: Array.isArray(cls.fraudTimestamps) ? cls.fraudTimestamps : [],
+            ...cls,
+          };
+
+          emit('result', result);
+          saveScanResult(result, 'deep').catch(() => {});
+          if ((cls.riskScore ?? 0) >= 30) {
+            savePost({ ...result, caption: video.title }).catch(() => {});
+          }
+        } catch (err) {
+          emit('error', { id: `tt-${video.id}`, message: err.message });
+        }
+      }
+    } catch (err) {
+      console.warn(`[deep/tt] TikTok search failed: ${err.message}`);
+      // TikTok search is best-effort — don't emit error to user
     }
   }
 

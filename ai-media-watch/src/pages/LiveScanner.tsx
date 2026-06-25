@@ -50,7 +50,7 @@ interface Segment {
 interface DeepCard {
   id: string;
   url: string;
-  platform: 'youtube';
+  platform: 'youtube' | 'tiktok';
   username: string;
   title: string;
   thumbnail: string;
@@ -97,6 +97,14 @@ function parseTimestamp(ts: string): number {
   const parts = ts.split(':').map(Number);
   if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
   return (parts[0] ?? 0) * 60 + (parts[1] ?? 0);
+}
+function getYouTubeId(url: string) {
+  const m = url.match(/(?:v=|youtu\.be\/|embed\/)([A-Za-z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+function getTikTokId(url: string) {
+  const m = url.match(/\/video\/(\d+)/);
+  return m ? m[1] : null;
 }
 function parseTsStart(ts: string): number { return parseTimestamp(ts.split('-')[0].trim()); }
 function parseTsEnd(ts: string): number {
@@ -161,9 +169,6 @@ function FraudTimeline({ duration, fraudTimestamps, onSeek }: {
   );
 }
 
-function getYouTubeId(url: string): string | null {
-  return url.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/)?.[1] ?? null;
-}
 
 function Typewriter({ text, speed = 16 }: { text: string; speed?: number }) {
   const [n, setN] = useState(0);
@@ -192,7 +197,9 @@ function DeepScanCard({ card }: { card: DeepCard }) {
   const [showTranscript, setShowTranscript] = useState(hasFraudTs);
 
   const colors    = card.riskScore !== undefined ? getRiskColor(card.riskScore) : null;
-  const videoId   = getYouTubeId(card.url);
+  const videoId   = card.platform === 'youtube' ? getYouTubeId(card.url) : null;
+  const tiktokId  = card.platform === 'tiktok'  ? getTikTokId(card.url)  : null;
+  const hasPlayer = !!(videoId || tiktokId);
   const fraudSet  = new Set(card.fraudTimestamps ?? []);
   const isWorking = card.state !== 'done';
 
@@ -218,11 +225,15 @@ function DeepScanCard({ card }: { card: DeepCard }) {
       style={!isWorking && colors ? { borderLeft: `3px solid ${colors.bar}` } : undefined}
     >
       {/* ── Video / Thumbnail ── */}
-      {showPlayer && videoId ? (
-        <div className="relative w-full" style={{ aspectRatio: '16/9' }}>
+      {showPlayer && hasPlayer ? (
+        <div className="relative w-full bg-black" style={{ aspectRatio: tiktokId ? '9/16' : '16/9', maxHeight: tiktokId ? 560 : undefined }}>
           <iframe
             key={playerKey}
-            src={`https://www.youtube.com/embed/${videoId}?autoplay=1&start=${playerStartSec}&rel=0&enablejsapi=1`}
+            src={
+              tiktokId
+                ? `https://www.tiktok.com/embed/v2/${tiktokId}?autoplay=1`
+                : `https://www.youtube.com/embed/${videoId}?autoplay=1&start=${playerStartSec}&rel=0`
+            }
             className="w-full h-full"
             allow="autoplay; accelerometer; clipboard-write; encrypted-media; picture-in-picture"
             allowFullScreen
