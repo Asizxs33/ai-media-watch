@@ -19,6 +19,7 @@ import https from 'node:https';
 import { formatSegments } from './transcriber.js';
 import { classifyContent, classifyImage } from './classifier.js';
 import { savePost } from './db.js';
+import { searchTiktok } from './search.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TMP_DIR = join(__dirname, '../tmp');
@@ -479,7 +480,20 @@ async function runCycle() {
         else if (searches[1].status === 'rejected') console.warn('[scanner]   Rutube search failed:', searches[1].reason?.message);
       }
 
-      const allVideos = [...ytVideos, ...ruVideos];
+      // TikTok — async generator, collect separately
+      const ttVideos = [];
+      if (ep.includes('tiktok')) {
+        try {
+          for await (const video of searchTiktok(keyword, MAX_PER_KEYWORD * 2)) {
+            if (video.url) ttVideos.push(video);
+          }
+          console.log(`[scanner]   TikTok:  ${ttVideos.length} results`);
+        } catch (err) {
+          console.warn('[scanner]   TikTok search failed:', err.message);
+        }
+      }
+
+      const allVideos = [...ytVideos, ...ruVideos, ...ttVideos];
 
       // Prioritize: live first, then sort by viewCount (more viewers = more potential victims)
       const live    = allVideos.filter(v => v.isLive);
