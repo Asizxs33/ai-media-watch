@@ -460,17 +460,31 @@ function DeepScanCard({ card }: { card: DeepCard }) {
 
                   {/* Marker frequency chart */}
                   {topMarkers.length > 0 && (
-                    <div className="rounded-lg border border-white/[0.08] bg-white/[0.03] p-3 space-y-1.5">
+                    <div className="rounded-lg border border-white/[0.08] bg-white/[0.03] p-3 space-y-1">
                       <div className="text-[9px] text-on-surface-variant/40 font-label-caps tracking-widest mb-2">ПРИЗНАКИ</div>
                       {topMarkers.map(([marker, count]) => (
-                        <div key={marker} className="space-y-0.5">
-                          <div className="flex justify-between items-center gap-1">
-                            <span className="text-[9px] text-on-surface-variant/65 font-code-sm leading-tight line-clamp-2 flex-1">{marker}</span>
-                            <span className="text-[9px] text-error/60 font-code-sm shrink-0 ml-1">×{count}</span>
+                        <div
+                          key={marker}
+                          className="group/marker rounded-lg px-2 py-1.5 -mx-2 cursor-default transition-colors duration-150 hover:bg-error/8"
+                        >
+                          <div className="flex justify-between items-start gap-1 mb-1">
+                            <span
+                              className="text-[9px] text-on-surface-variant/65 font-code-sm leading-snug flex-1 overflow-hidden transition-all duration-300 ease-out"
+                              style={{
+                                display: '-webkit-box',
+                                WebkitBoxOrient: 'vertical',
+                                WebkitLineClamp: 'var(--lc, 2)',
+                              } as React.CSSProperties}
+                              onMouseEnter={e => (e.currentTarget.style.setProperty('--lc', 'unset'))}
+                              onMouseLeave={e => (e.currentTarget.style.setProperty('--lc', '2'))}
+                            >
+                              {marker}
+                            </span>
+                            <span className="text-[9px] text-error/60 font-code-sm shrink-0 ml-1 group-hover/marker:text-error transition-colors">×{count}</span>
                           </div>
                           <div className="w-full bg-white/[0.05] rounded-full h-0.5">
                             <div
-                              className="h-0.5 rounded-full bg-error/50"
+                              className="h-0.5 rounded-full bg-error/40 group-hover/marker:bg-error/80 transition-all duration-300"
                               style={{ width: `${(count / maxCount) * 100}%` }}
                             />
                           </div>
