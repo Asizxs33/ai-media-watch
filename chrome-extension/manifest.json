@@ -3,7 +3,7 @@
   "name": "Spectra AI — Защита от мошенничества",
   "version": "2.0.0",
   "description": "Сканирует видео, аудио и текст в YouTube, TikTok, Instagram, ВКонтакте, Facebook, Twitter/X, Telegram и OK.ru. ИИ-защита от мошенников.",
-  "permissions": ["storage", "alarms"],
+  "permissions": ["storage", "alarms", "tabs"],
   "host_permissions": [
     "https://*.youtube.com/*",
     "https://*.tiktok.com/*",

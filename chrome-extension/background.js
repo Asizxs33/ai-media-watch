@@ -6,7 +6,7 @@
 const DEFAULT_SETTINGS = {
   backendUrl: 'https://lane-strengths-var-ccd.trycloudflare.com',
   enabled: true,
-  blockThreshold: 0.65,
+  blockThreshold: 65,
   timeLimitsEnabled: false,
   timeLimits: { youtube: 60, tiktok: 30, instagram: 30, twitter: 60, facebook: 60, vk: 60, telegram: 120, ok: 60 },
 };
@@ -229,6 +229,22 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       isUrlBlocked(msg.url)
         .then(blocked => sendResponse({ blocked }))
         .catch(() => sendResponse({ blocked: false }));
+      return true;
+
+    // Capture the visible tab as JPEG — bypasses canvas CORS restrictions
+    case 'CAPTURE_TAB':
+      chrome.tabs.captureVisibleTab(
+        _sender.tab?.windowId ?? chrome.windows.WINDOW_ID_CURRENT,
+        { format: 'jpeg', quality: 75 },
+        (dataUrl) => {
+          if (chrome.runtime.lastError || !dataUrl) {
+            sendResponse({ ok: false, error: chrome.runtime.lastError?.message });
+            return;
+          }
+          const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, '');
+          sendResponse({ ok: true, imageBase64: base64, mediaType: 'image/jpeg' });
+        }
+      );
       return true;
   }
 });

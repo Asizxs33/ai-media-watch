@@ -58,7 +58,7 @@
     if (!text) return;
 
     const result = await window.AMW.classifyDeep({ platform: PLATFORM, text, username: channel, url });
-    if (result && (result.riskScore ?? 0) >= 0.65) {
+    if (result && (result.riskScore ?? 0) >= 65) {
       window.AMW.showWarning(result, PLATFORM);
     }
 

@@ -61,7 +61,7 @@
 
     if (stopWatcher) stopWatcher();
     const result = await window.AMW.classifyDeep({ platform: PLATFORM, text, username: user, url });
-    if (result && (result.riskScore ?? 0) >= 0.65) window.AMW.showWarning(result, PLATFORM);
+    if (result && (result.riskScore ?? 0) >= 65) window.AMW.showWarning(result, PLATFORM);
 
     // Start live audio+frame watcher while user watches
     await new Promise(r => setTimeout(r, 1000));

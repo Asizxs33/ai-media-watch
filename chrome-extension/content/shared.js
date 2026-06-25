@@ -194,9 +194,9 @@
         },
       });
 
-      const score = result.riskScore ?? 0.7;
-      const isHigh = score >= 0.75;
-      const pct = Math.round(score * 100);
+      const score = result.riskScore ?? 70;   // backend returns 0-100
+      const isHigh = score >= 75;
+      const pct = Math.round(score);
       const reason = result.reason || result.explanation || 'Похоже на мошенническую схему';
       const tags = (result.schemeTypes || (result.schemeType ? [result.schemeType] : []));
       const isLive = result.source === 'live-audio' || result.source === 'live-frame';
@@ -347,7 +347,31 @@
       });
     },
 
-    // Capture current video frame as JPEG base64
+    // Capture current video frame — uses captureVisibleTab (background) to bypass CORS.
+    // Falls back to canvas if background unavailable.
+    captureFrame() {
+      return new Promise((resolve) => {
+        safeSend({ type: 'CAPTURE_TAB' }, (resp) => {
+          if (chrome.runtime.lastError || !resp?.ok) {
+            // Canvas fallback
+            try {
+              const video = document.querySelector('video');
+              if (!video || video.readyState < 2 || video.videoWidth === 0) return resolve(null);
+              const w = 480;
+              const h = Math.round(w * video.videoHeight / video.videoWidth) || 270;
+              const canvas = document.createElement('canvas');
+              canvas.width = w; canvas.height = h;
+              canvas.getContext('2d').drawImage(video, 0, 0, w, h);
+              resolve(canvas.toDataURL('image/jpeg', 0.82).split(',')[1]);
+            } catch { resolve(null); }
+          } else {
+            resolve(resp.imageBase64);
+          }
+        });
+      });
+    },
+
+    // Keep old sync name as alias so existing callers still work
     captureVideoFrame() {
       try {
         const video = document.querySelector('video');
@@ -404,24 +428,24 @@
       if (!video) return null;
 
       const alerted = new Set();
-      const FRAME_INTERVAL = 20000;  // visual check every 20s
+      const FRAME_INTERVAL = 5000;   // visual check every 5s (faster for live fraud text)
       const CHUNK_MS = 28000;        // audio chunk every 28s
 
       const maybeWarn = (result, key) => {
         if (!result || alerted.has(key)) return;
-        if ((result.riskScore ?? 0) >= 0.65) {
+        if ((result.riskScore ?? 0) >= 65) {
           alerted.add(key);
           window.AMW.showWarning(result, platform);
         }
       };
 
-      // ── Periodic video frame → Claude Vision ──
+      // ── Periodic video frame → Claude Vision (via captureVisibleTab — no CORS) ──
       const frameTimer = setInterval(async () => {
         if (document.hidden || video.paused) return;
-        const imageBase64 = window.AMW.captureVideoFrame();
-        if (!imageBase64) return;
-        const key = `frame-${Math.floor(video.currentTime / 20)}`;
+        const key = `frame-${Math.floor(Date.now() / FRAME_INTERVAL)}`;
         if (alerted.has(key)) return;
+        const imageBase64 = await window.AMW.captureFrame();
+        if (!imageBase64) return;
         const result = await window.AMW.classifyImage(imageBase64);
         maybeWarn(result, key);
       }, FRAME_INTERVAL);
@@ -512,10 +536,10 @@
     async startLiveStreamWatcher(platform, url) {
       // Give the player ~2s to render a real frame
       await new Promise(r => setTimeout(r, 2000));
-      const firstFrame = window.AMW.captureVideoFrame();
+      const firstFrame = await window.AMW.captureFrame();
       if (firstFrame) {
         const result = await window.AMW.classifyImage(firstFrame);
-        if (result && (result.riskScore ?? 0) >= 0.65) {
+        if (result && (result.riskScore ?? 0) >= 65) {
           result.source = 'live-frame';
           window.AMW.showWarning(result, platform);
         }

@@ -56,7 +56,7 @@
 
     // Settings fields
     document.getElementById('backend-url').value = settings.backendUrl || 'http://localhost:3001';
-    slider.value = Math.round((settings.blockThreshold || 0.65) * 100);
+    slider.value = settings.blockThreshold ?? 65;
     sliderVal.textContent = slider.value + '%';
     document.getElementById('limits-toggle').checked = settings.timeLimitsEnabled || false;
     document.getElementById('limit-youtube').value = settings.timeLimits?.youtube ?? 60;
@@ -120,7 +120,7 @@
   document.getElementById('save-btn').addEventListener('click', () => {
     const settings = {
       backendUrl: document.getElementById('backend-url').value.trim().replace(/\/$/, '') || 'http://localhost:3001',
-      blockThreshold: Number(slider.value) / 100,
+      blockThreshold: Number(slider.value),
       timeLimitsEnabled: document.getElementById('limits-toggle').checked,
       timeLimits: {
         youtube: Number(document.getElementById('limit-youtube').value) || 60,
