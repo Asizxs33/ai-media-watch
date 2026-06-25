@@ -811,6 +811,7 @@ export default function LiveScanner() {
     const params = new URLSearchParams({
       keywords: keywords.trim(),
       limit: String(Math.min(limit, 15)),
+      platforms: [...platforms].join(','),
     });
 
     try {
@@ -980,46 +981,45 @@ export default function LiveScanner() {
               </div>
             </div>
 
-            {/* Platforms — live scan only */}
-            {mode === 'live' && (
-              <div className="glass-card p-4">
-                <label className="font-label-caps text-label-caps text-on-surface-variant tracking-widest block mb-3">
-                  ПЛАТФОРМЫ
-                </label>
-                <div className="flex gap-2">
-                  {(['youtube', 'tiktok'] as const).map((p) => (
+            {/* Platforms — both modes */}
+            <div className="glass-card p-4">
+              <label className="font-label-caps text-label-caps text-on-surface-variant tracking-widest block mb-3">
+                ПЛАТФОРМЫ
+              </label>
+              <div className="flex gap-2 flex-wrap">
+                {(mode === 'live'
+                  ? [
+                      { id: 'youtube', label: 'YouTube', icon: 'smart_display', color: '#ff5640' },
+                      { id: 'tiktok',  label: 'TikTok',  icon: 'music_note',   color: '#ee1d51' },
+                      { id: 'rutube',  label: 'Rutube',  icon: 'play_circle',  color: '#ff6b35' },
+                    ]
+                  : [
+                      { id: 'youtube', label: 'YouTube', icon: 'smart_display', color: '#ff5640' },
+                      { id: 'tiktok',  label: 'TikTok',  icon: 'music_note',   color: '#ee1d51' },
+                    ]
+                ).map((p) => {
+                  const active = platforms.has(p.id);
+                  return (
                     <button
-                      key={p}
-                      onClick={() => togglePlatform(p)}
+                      key={p.id}
+                      onClick={() => togglePlatform(p.id as any)}
                       disabled={isScanning}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-full border font-label-caps text-label-caps tracking-widest text-xs transition-all disabled:opacity-50 ${
-                        platforms.has(p)
-                          ? 'border-white/25 text-white bg-white/10'
+                      className={`flex items-center gap-2 px-4 py-2 rounded-full border text-xs font-semibold transition-all disabled:opacity-50 ${
+                        active
+                          ? 'border-white/30 text-white bg-white/12'
                           : 'border-white/10 text-on-surface-variant hover:border-white/20 hover:bg-white/5'
                       }`}
                     >
-                      <span className="material-symbols-outlined text-sm" style={sym}>{platformIcon[p]}</span>
-                      {p === 'youtube' ? 'YouTube' : 'TikTok'}
+                      <span
+                        className="material-symbols-outlined text-sm"
+                        style={{ ...sym, color: active ? p.color : undefined }}
+                      >{p.icon}</span>
+                      {p.label}
                     </button>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
-            )}
-
-            {/* Deep scan note */}
-            {mode === 'deep' && (
-              <div className="glass-card p-4 border border-primary/20">
-                <div className="flex gap-2.5 items-start">
-                  <span className="material-symbols-outlined text-primary text-lg shrink-0 mt-0.5" style={sym}>info</span>
-                  <div className="space-y-1">
-                    <p className="text-xs text-on-surface font-semibold">Глубокий анализ</p>
-                    <p className="text-[11px] text-on-surface-variant/70 leading-relaxed">
-                      Скачивает аудио каждого видео и транскрибирует через Whisper. Находит мошенничество в любом месте видео с точным таймлаймом. Только YouTube. До 15 видео. Занимает 5–20 мин.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
+            </div>
 
             {/* Limit */}
             <div className="glass-card p-4">

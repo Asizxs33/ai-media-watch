@@ -346,17 +346,17 @@ livescanRouter.post('/stop', (req, res) => {
    Always transcribes every video. Returns timestamped segments + fraudTimestamps.
    Max 15 videos (hard cap — each video takes ~30-120s to transcribe).
    ───────────────────────────────────────────── */
-async function runDeepScan({ keywords, limit }, emit, getAborted) {
+async function runDeepScan({ keywords, limit, platforms = ['youtube'] }, emit, getAborted) {
   const cap = Math.min(limit, 15);
   const perKeyword = Math.ceil(cap / keywords.length);
   let scanned = 0;
 
-  emit('status', { message: `Поиск видео: "${keywords.join(', ')}"…` });
+  emit('status', { message: `Поиск видео: "${keywords.join(', ')}" [${platforms.join(', ')}]…` });
 
   for (const keyword of keywords) {
     if (getAborted() || scanned >= cap) break;
 
-    try {
+    if (platforms.includes('youtube')) try {
       for await (const video of searchYoutube(keyword, perKeyword * 5)) {
         if (getAborted() || scanned >= cap) break;
         // Deep scan = long content only (> 2 min); yt-dlp may return 0 if unknown
@@ -501,7 +501,7 @@ async function runDeepScan({ keywords, limit }, emit, getAborted) {
 
     // ── TikTok ────────────────────────────────────────────────────────────────
     if (getAborted() || scanned >= cap) break;
-    try {
+    if (platforms.includes('tiktok')) try {
       let ttScanned = 0;
       for await (const video of searchTiktok(keyword, perKeyword * 4)) {
         if (getAborted() || scanned >= cap) break;
