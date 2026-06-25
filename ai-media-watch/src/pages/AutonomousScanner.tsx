@@ -190,18 +190,20 @@ export default function AutonomousScanner() {
         {/* Platform breakdown */}
         {status && (
           <div className="bg-surface-container border border-outline-variant/30 rounded-2xl p-4 mb-4">
-            <div className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-3">Найдено по платформам</div>
-            <div className="flex flex-wrap gap-3">
+            <div className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-3">Сканирует платформы</div>
+            <div className="grid grid-cols-3 gap-3">
               {[
-                { id: 'youtube', label: 'YouTube', color: '#ff5640' },
-                { id: 'rutube',  label: 'Rutube',  color: '#ff6b35' },
+                { id: 'youtube', label: 'YouTube', color: '#ff5640', icon: 'smart_display' },
+                { id: 'tiktok',  label: 'TikTok',  color: '#ee1d51', icon: 'music_note'   },
+                { id: 'rutube',  label: 'Rutube',  color: '#ff6b35', icon: 'play_circle'  },
               ].map(p => {
                 const count = status.byPlatform?.[p.id] ?? 0;
                 return (
-                  <div key={p.id} className="flex items-center gap-2 bg-surface-container-high rounded-xl px-3 py-2">
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: p.color }} />
-                    <span className="text-xs text-on-surface-variant">{p.label}</span>
-                    <span className={`text-sm font-bold ml-1 ${count > 0 ? 'text-error' : 'text-on-surface-variant'}`}>{count}</span>
+                  <div key={p.id} className="flex flex-col items-center gap-1.5 bg-surface-container-high rounded-2xl py-4 px-3">
+                    <span className="material-symbols-outlined text-[28px]" style={{ color: p.color }}>{p.icon}</span>
+                    <span className="text-xs font-semibold text-white">{p.label}</span>
+                    <span className={`text-xl font-bold ${count > 0 ? 'text-error' : 'text-on-surface-variant/50'}`}>{count}</span>
+                    <span className="text-[10px] text-on-surface-variant">угроз найдено</span>
                   </div>
                 );
               })}
@@ -226,53 +228,35 @@ export default function AutonomousScanner() {
           </motion.div>
         )}
 
-        {/* Keywords — что именно ищет */}
+        {/* Keywords — категории */}
         <div className="bg-surface-container border border-outline-variant/30 rounded-2xl p-4 mb-4">
           <div className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-3">
-            Что ищет — 24 ключевых слова по всем схемам мошенничества
+            Что ищет — 24 ключевых слова по 8 схемам мошенничества
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {[
-              { label: 'казино прямой эфир',            cat: 'casino' },
-              { label: 'онлайн казино выигрыш',         cat: 'casino' },
-              { label: 'спортставки заработок',          cat: 'casino' },
-              { label: 'пассивный доход инвестиции',     cat: 'pyramid' },
-              { label: 'MLM сетевой бизнес',            cat: 'pyramid' },
-              { label: 'партнёрская программа прибыль',  cat: 'pyramid' },
-              { label: 'закинь получи прибыль',          cat: 'fraud' },
-              { label: 'вложи удвою деньги',             cat: 'fraud' },
-              { label: 'пришли деньги верну больше',     cat: 'fraud' },
-              { label: 'форекс сигналы заработок',       cat: 'pyramid' },
-              { label: 'трейдинг обучение прибыль',      cat: 'pyramid' },
-              { label: 'бинарные опционы',               cat: 'pyramid' },
-              { label: 'крипта быстрый заработок',       cat: 'fraud' },
-              { label: 'bitcoin инвестиции гарантия',    cat: 'fraud' },
-              { label: 'криптовалюта удвоение',          cat: 'fraud' },
-              { label: 'работа в интернете без вложений',cat: 'fraud' },
-              { label: 'удалённая работа заработок',     cat: 'fraud' },
-              { label: 'Kaspi перевод заработок',        cat: 'fraud' },
-              { label: 'номер карты перевод выигрыш',   cat: 'fraud' },
-              { label: 'розыгрыш приз победитель',       cat: 'fraud' },
-              { label: 'выиграл получи деньги',          cat: 'fraud' },
-              { label: 'заработок прямой эфир live',     cat: 'casino' },
-              { label: 'инвестиции прямой эфир',         cat: 'pyramid' },
-            ].map(({ label, cat }) => (
-              <span
-                key={label}
-                className={`text-[11px] font-mono px-2.5 py-1 rounded-lg border ${
-                  cat === 'casino'  ? 'text-amber-400  bg-amber-400/8  border-amber-400/20'  :
-                  cat === 'pyramid' ? 'text-orange-400 bg-orange-400/8 border-orange-400/20' :
-                                     'text-red-400    bg-red-400/8    border-red-400/20'
-                }`}
-              >
-                {label}
-              </span>
+              { icon: 'casino',             label: 'Казино / Ставки',          color: 'amber',  tw: 'text-amber-400 bg-amber-400/8 border-amber-400/20',   keywords: ['казино прямой эфир', 'онлайн казино выигрыш', 'спортставки заработок', 'заработок прямой эфир live'] },
+              { icon: 'account_tree',        label: 'Пирамиды / MLM',           color: 'orange', tw: 'text-orange-400 bg-orange-400/8 border-orange-400/20', keywords: ['пассивный доход инвестиции', 'MLM сетевой бизнес заработок', 'партнёрская программа прибыль', 'инвестиции прямой эфир'] },
+              { icon: 'currency_exchange',   label: '"Закинь — получи"',         color: 'red',    tw: 'text-red-400 bg-red-400/8 border-red-400/20',          keywords: ['закинь получи прибыль', 'вложи удвою деньги', 'пришли деньги верну больше'] },
+              { icon: 'show_chart',          label: 'Форекс / Трейдинг',        color: 'yellow', tw: 'text-yellow-400 bg-yellow-400/8 border-yellow-400/20', keywords: ['форекс сигналы заработок', 'трейдинг обучение прибыль', 'бинарные опционы заработок'] },
+              { icon: 'currency_bitcoin',    label: 'Крипто мошенничество',     color: 'violet', tw: 'text-violet-400 bg-violet-400/8 border-violet-400/20', keywords: ['крипта быстрый заработок', 'bitcoin инвестиции гарантия', 'криптовалюта удвоение'] },
+              { icon: 'work_off',            label: 'Фиктивная работа',         color: 'pink',   tw: 'text-pink-400 bg-pink-400/8 border-pink-400/20',       keywords: ['работа в интернете без вложений', 'удалённая работа заработок'] },
+              { icon: 'credit_card',         label: 'Kaspi / Карты',            color: 'emerald',tw: 'text-emerald-400 bg-emerald-400/8 border-emerald-400/20', keywords: ['Kaspi перевод заработок', 'номер карты перевод выигрыш'] },
+              { icon: 'redeem',              label: 'Фейковые розыгрыши',       color: 'cyan',   tw: 'text-cyan-400 bg-cyan-400/8 border-cyan-400/20',       keywords: ['розыгрыш приз победитель', 'выиграл получи деньги'] },
+            ].map(({ icon, label, tw, keywords }) => (
+              <div key={label} className={`rounded-xl border p-3 ${tw}`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 0" }}>{icon}</span>
+                  <span className="text-[11px] font-bold uppercase tracking-wide">{label}</span>
+                  <span className="ml-auto text-[10px] opacity-60">{keywords.length} кл.</span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {keywords.map(kw => (
+                    <span key={kw} className="text-[10px] font-mono bg-black/20 rounded px-1.5 py-0.5 text-white/80">{kw}</span>
+                  ))}
+                </div>
+              </div>
             ))}
-          </div>
-          <div className="flex gap-4 mt-3 text-[11px] text-on-surface-variant">
-            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-amber-400/40 inline-block" /> казино/ставки</span>
-            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-orange-400/40 inline-block" /> пирамиды/MLM</span>
-            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-red-400/40 inline-block" /> мошенничество</span>
           </div>
         </div>
 

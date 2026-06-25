@@ -87,7 +87,7 @@ export const scannerState = {
   recentFindings:   [],
   // per-platform counters (only platforms with working search)
   byPlatform: {
-    youtube: 0, rutube: 0,
+    youtube: 0, tiktok: 0, rutube: 0,
   },
 };
 
