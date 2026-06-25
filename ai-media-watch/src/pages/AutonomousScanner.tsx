@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SidebarLayout } from '../components/layout/SidebarLayout';
-import { getRiskColor, getCategoryLabel } from '../components/ui/RiskBadge';
+import { getCategoryLabel } from '../components/ui/RiskBadge';
 import { BACKEND } from '../config';
 
 const sym = { fontVariationSettings: "'FILL' 0" };
@@ -78,7 +78,7 @@ export default function AutonomousScanner() {
     fetchStatus();
     pollRef.current = setInterval(fetchStatus, 5000);
     countRef.current = setInterval(() => {
-      setCountdown(prev => {
+      setCountdown(() => {
         if (!status?.nextRunAt) return '—';
         return timeUntil(status.nextRunAt);
       });
