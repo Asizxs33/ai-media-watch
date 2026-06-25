@@ -123,8 +123,10 @@ function Typewriter({ text, speed = 16 }: { text: string; speed?: number }) {
 function DeepScanCard({ card }: { card: DeepCard }) {
   const [showPlayer, setShowPlayer]         = useState(false);
   const [playerStartSec, setPlayerStartSec] = useState(0);
-  const [playerKey, setPlayerKey]           = useState(0); // force iframe reload on seek
-  const [showTranscript, setShowTranscript] = useState(false);
+  const [playerKey, setPlayerKey]           = useState(0);
+  // Auto-expand transcript when fraud timestamps exist
+  const hasFraudTs = (card.fraudTimestamps ?? []).length > 0;
+  const [showTranscript, setShowTranscript] = useState(hasFraudTs);
 
   const colors    = card.riskScore !== undefined ? getRiskColor(card.riskScore) : null;
   const videoId   = getYouTubeId(card.url);
@@ -1032,16 +1034,54 @@ export default function LiveScanner() {
                   </div>
                 )}
 
+                {/* Progress bar while scanning */}
+                {deepScanState === 'scanning' && deepCards.length > 0 && (() => {
+                  const done    = deepCards.filter(c => c.state === 'done').length;
+                  const danger  = deepCards.filter(c => c.state === 'done' && (c.riskScore ?? 0) >= 60).length;
+                  const total   = deepCards.length;
+                  return (
+                    <div className="glass-card p-3 flex items-center gap-3 text-xs font-code-sm">
+                      <span className="material-symbols-outlined text-primary text-sm animate-spin" style={sym}>progress_activity</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between text-on-surface-variant/60 mb-1">
+                          <span>Проверено: {done}/{total}</span>
+                          <span className="text-error">Опасных: {danger}</span>
+                        </div>
+                        <div className="w-full bg-white/[0.06] rounded-full h-1">
+                          <div className="h-1 rounded-full bg-primary transition-all duration-500" style={{ width: `${total ? (done / total) * 100 : 0}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 <AnimatePresence mode="popLayout">
-                  {deepCards.map((card) => (
-                    <DeepScanCard key={card.id} card={card} />
-                  ))}
+                  {deepCards
+                    // While scanning show working cards (progress) + finished dangerous ones.
+                    // After scan done: only show dangerous (riskScore >= 60).
+                    .filter(card =>
+                      card.state !== 'done' ||
+                      (card.riskScore ?? 0) >= 60
+                    )
+                    .map((card) => (
+                      <DeepScanCard key={card.id} card={card} />
+                    ))}
                 </AnimatePresence>
 
-                {deepScanState === 'scanning' && deepCards.length > 0 && (
-                  <div className="text-center py-4">
+                {/* Empty state after scan: no dangerous videos found */}
+                {deepScanState === 'done' && deepCards.length > 0 &&
+                  deepCards.filter(c => (c.riskScore ?? 0) >= 60).length === 0 && (
+                  <div className="glass-card p-10 text-center">
+                    <span className="material-symbols-outlined text-4xl text-green-400/60 block mb-3" style={sym}>verified_user</span>
+                    <p className="text-on-surface-variant font-code-sm text-sm">Опасного контента не обнаружено</p>
+                    <p className="text-on-surface-variant/40 text-xs mt-1">Проверено {deepCards.length} видео — угроз нет</p>
+                  </div>
+                )}
+
+                {deepScanState === 'scanning' && deepCards.filter(c => c.state !== 'done').length > 0 && (
+                  <div className="text-center py-2">
                     <span className="text-xs text-on-surface-variant/40 font-code-sm animate-pulse">
-                      Транскрибирование и анализ продолжается…
+                      Whisper транскрибирует следующее видео…
                     </span>
                   </div>
                 )}
