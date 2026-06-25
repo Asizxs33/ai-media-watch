@@ -248,3 +248,126 @@ livescanRouter.post('/stop', (req, res) => {
   if (session) session.aborted = true;
   res.json({ ok: true });
 });
+
+/* ─────────────────────────────────────────────
+   Deep scan — long video analysis with full Whisper transcription
+   Always transcribes every video. Returns timestamped segments + fraudTimestamps.
+   Max 15 videos (hard cap — each video takes ~30-120s to transcribe).
+   ───────────────────────────────────────────── */
+async function runDeepScan({ keywords, limit }, emit, getAborted) {
+  const cap = Math.min(limit, 15);
+  const perKeyword = Math.ceil(cap / keywords.length);
+  let scanned = 0;
+
+  emit('status', { message: `Поиск видео: "${keywords.join(', ')}"…` });
+
+  for (const keyword of keywords) {
+    if (getAborted() || scanned >= cap) break;
+
+    try {
+      for await (const video of searchYoutube(keyword, perKeyword * 5)) {
+        if (getAborted() || scanned >= cap) break;
+        // Deep scan = long content only (> 2 min); yt-dlp may return 0 if unknown
+        if (video.duration > 0 && video.duration < 120) continue;
+        scanned++;
+
+        emit('found', {
+          id: `yt-${video.id}`,
+          url: video.url,
+          platform: 'youtube',
+          title: video.title,
+          username: video.uploader,
+          thumbnail: video.thumbnail,
+          viewCount: video.viewCount,
+          duration: video.duration,
+          keyword,
+        });
+
+        try {
+          const text = [
+            video.title,
+            video.description,
+            video.tags.map((t) => `#${t}`).join(' '),
+          ].filter(Boolean).join('\n');
+
+          // Signal "transcribing" phase to frontend
+          emit('status', {
+            message: `🎙 Whisper: "${video.title.slice(0, 48)}…"`,
+            transcribingId: `yt-${video.id}`,
+          });
+
+          let segments = [];
+          let transcript = '';
+          let formattedTranscript = '';
+
+          try {
+            const tr = await transcribeFromUrl(video.url);
+            if (tr?.text) {
+              transcript      = tr.text;
+              segments        = tr.segments ?? [];
+              formattedTranscript = formatSegments(segments);
+            }
+          } catch (e) {
+            console.warn(`[deep] transcribe failed for ${video.id}:`, e.message);
+          }
+
+          const cls = await classifyContent({
+            platform: 'youtube',
+            username: video.uploader,
+            caption: video.title,
+            scrapedText: text,
+            transcript,
+            formattedTranscript,
+          });
+
+          const result = {
+            id: `yt-${video.id}`,
+            url: video.url,
+            platform: 'youtube',
+            username: video.uploader,
+            title: video.title,
+            thumbnail: video.thumbnail,
+            viewCount: video.viewCount,
+            duration: video.duration,
+            keyword,
+            transcript: transcript.slice(0, 5000),
+            segments,
+            fraudTimestamps: Array.isArray(cls.fraudTimestamps) ? cls.fraudTimestamps : [],
+            ...cls,
+          };
+
+          emit('result', result);
+
+          if ((cls.riskScore ?? 0) >= 30) {
+            savePost({ ...result, caption: video.title }).catch(() => {});
+          }
+        } catch (err) {
+          emit('error', { id: `yt-${video.id}`, message: err.message });
+        }
+      }
+    } catch (err) {
+      emit('error', { message: `Поиск не удался: ${err.message}` });
+    }
+  }
+
+  return { scanned, found: scanned };
+}
+
+livescanRouter.post('/deep/start', (req, res) => {
+  pruneSessions();
+  const params = parseParams({ ...req.query, ...req.body });
+  params.limit = Math.min(params.limit, 15); // hard cap: each video takes minutes to transcribe
+  const scanId = `deep-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const session = { events: [], done: false, scanned: 0, found: 0, aborted: false, createdAt: Date.now() };
+  sessions.set(scanId, session);
+
+  const emit = (type, data) => session.events.push({ type, ...data });
+
+  runDeepScan(params, emit, () => session.aborted)
+    .then(({ scanned, found }) => { session.scanned = scanned; session.found = found; })
+    .catch((err) => { session.events.push({ type: 'error', message: err.message }); })
+    .finally(() => { session.done = true; });
+
+  res.json({ scanId });
+});
+// Deep scan reuses the existing /poll and /stop endpoints (generic scanId lookup)
