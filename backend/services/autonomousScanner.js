@@ -97,6 +97,16 @@ export const scannerState = {
 // URLs already analyzed in this server session — avoid re-scanning
 const scannedUrls = new Set();
 
+// Detect image media type from base64 magic bytes
+function detectMediaType(base64) {
+  const head = base64.slice(0, 12);
+  if (head.startsWith('iVBORw')) return 'image/png';
+  if (head.startsWith('/9j/'))   return 'image/jpeg';
+  if (head.startsWith('UklGR'))  return 'image/webp';
+  if (head.startsWith('R0lGOd')) return 'image/gif';
+  return 'image/jpeg'; // safe fallback
+}
+
 // ── yt-dlp helpers ────────────────────────────────────────────────────────────
 function spawnYtDlp(args) {
   for (const bin of YTDLP_CANDIDATES) {
@@ -376,14 +386,14 @@ async function scanOne(video, keyword) {
     let cls;
     if (imageBase64 && !hasText) {
       // Visual-only: classifyImage does OCR + fraud classification in one call
-      const imgResult = await classifyImage({ imageBase64, mediaType: 'image/jpeg' });
+      const imgResult = await classifyImage({ imageBase64, mediaType: detectMediaType(imageBase64) });
       cls = { ...imgResult };
       if (imgResult?.ocrText) transcript = imgResult.ocrText; // log what was read
     } else if (imageBase64) {
       // Hybrid: text analysis + image in parallel, take the highest risk
       const [textCls, imgCls] = await Promise.all([
         classifyContent({ platform: video.platform, username: video.uploader, caption: video.title, transcript, formattedTranscript }),
-        classifyImage({ imageBase64, mediaType: 'image/jpeg' }),
+        classifyImage({ imageBase64, mediaType: detectMediaType(imageBase64) }),
       ]);
       cls = (imgCls?.riskScore ?? 0) > (textCls?.riskScore ?? 0) ? imgCls : textCls;
     } else {
