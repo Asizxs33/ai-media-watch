@@ -98,6 +98,68 @@ function parseTimestamp(ts: string): number {
   if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
   return (parts[0] ?? 0) * 60 + (parts[1] ?? 0);
 }
+function parseTsStart(ts: string): number { return parseTimestamp(ts.split('-')[0].trim()); }
+function parseTsEnd(ts: string): number {
+  const p = ts.split('-');
+  return p.length > 1 ? parseTimestamp(p[1].trim()) : parseTsStart(ts) + 15;
+}
+
+// ── Fraud Timeline (custom seekable bar under player) ─────────────────────────
+function FraudTimeline({ duration, fraudTimestamps, onSeek }: {
+  duration: number;
+  fraudTimestamps: string[];
+  onSeek: (sec: number) => void;
+}) {
+  if (!duration) return null;
+  return (
+    <div className="px-0">
+      <div
+        className="relative h-5 bg-white/[0.05] cursor-pointer group"
+        title="Нажми чтобы перейти к моменту"
+        onClick={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const ratio = (e.clientX - rect.left) / rect.width;
+          onSeek(Math.round(ratio * duration));
+        }}
+      >
+        {/* Danger segments */}
+        {fraudTimestamps.map((ts) => {
+          const s = parseTsStart(ts);
+          const e = parseTsEnd(ts);
+          const left = Math.min(100, (s / duration) * 100);
+          const width = Math.max(0.4, Math.min(100 - left, ((e - s) / duration) * 100));
+          return (
+            <div
+              key={ts}
+              className="absolute top-0 h-full bg-error/60 hover:bg-error transition-colors"
+              style={{ left: `${left}%`, width: `${width}%` }}
+            />
+          );
+        })}
+        {/* Tick labels */}
+        {fraudTimestamps.map((ts) => {
+          const s = parseTsStart(ts);
+          const left = Math.min(96, (s / duration) * 100);
+          return (
+            <span
+              key={`lbl-${ts}`}
+              className="absolute bottom-0 text-[8px] text-error/70 font-code-sm pointer-events-none leading-none translate-y-full pt-0.5"
+              style={{ left: `${left}%` }}
+            >
+              {fmtDuration(s)}
+            </span>
+          );
+        })}
+        {/* Total duration label */}
+        <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[8px] text-on-surface-variant/30 font-code-sm pointer-events-none">
+          {fmtDuration(duration)}
+        </span>
+      </div>
+      {/* Spacer for tick labels */}
+      <div className="h-3" />
+    </div>
+  );
+}
 
 function getYouTubeId(url: string): string | null {
   return url.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/)?.[1] ?? null;
@@ -228,6 +290,15 @@ function DeepScanCard({ card }: { card: DeepCard }) {
         </div>
       )}
 
+      {/* ── Fraud Timeline (under player/thumbnail) ── */}
+      {!isWorking && hasFraud && card.duration > 0 && (
+        <FraudTimeline
+          duration={card.duration}
+          fraudTimestamps={card.fraudTimestamps ?? []}
+          onSeek={(sec) => { setPlayerStartSec(sec); setPlayerKey(k => k + 1); setShowPlayer(true); }}
+        />
+      )}
+
       {/* ── Card body ── */}
       <div className="p-4 space-y-3">
 
@@ -283,22 +354,11 @@ function DeepScanCard({ card }: { card: DeepCard }) {
           ) : null}
         </div>
 
-        {/* Fraud timestamps — detailed evidence panel */}
+        {/* Fraud evidence — two-column layout */}
         {!isWorking && hasFraud && (() => {
           const segs = card.segments ?? [];
           const shownTexts = new Set<string>();
 
-          // Parse "4:23" or "4:23-4:45" → start seconds
-          function parseTsStart(ts: string): number {
-            return parseTimestamp(ts.split('-')[0].trim());
-          }
-          function parseTsEnd(ts: string): number {
-            const parts = ts.split('-');
-            if (parts.length > 1) return parseTimestamp(parts[1].trim());
-            return parseTsStart(ts) + 20;
-          }
-
-          // Find segments that fall within [start-2s, end+2s] window
           function getSegsInRange(start: number, end: number): Segment[] {
             return segs.filter(s =>
               (s.start >= start - 2 && s.start <= end + 2) ||
@@ -306,67 +366,126 @@ function DeepScanCard({ card }: { card: DeepCard }) {
             );
           }
 
+          // Marker frequency for right panel
+          const markerCounts: Record<string, number> = {};
+          (card.detectedMarkers ?? []).forEach(m => { markerCounts[m] = (markerCounts[m] ?? 0) + 1; });
+          const topMarkers = Object.entries(markerCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
+          const maxCount = topMarkers[0]?.[1] ?? 1;
+
+          // Danger duration
+          const totalDangerSec = (card.fraudTimestamps ?? []).reduce((acc, ts) => {
+            return acc + Math.max(0, parseTsEnd(ts) - parseTsStart(ts));
+          }, 0);
+          const dangerPct = card.duration > 0 ? Math.round((totalDangerSec / card.duration) * 100) : 0;
+
           return (
-            <div className="space-y-2">
-              <div className="flex items-center gap-1.5 text-[11px] text-error/80 font-code-sm">
+            <div className="space-y-0">
+              {/* Section header */}
+              <div className="flex items-center gap-1.5 text-[11px] text-error/80 font-code-sm mb-2">
                 <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>gpp_bad</span>
-                Опасные моменты ({(card.fraudTimestamps ?? []).length}):
+                Опасные моменты ({(card.fraudTimestamps ?? []).length})
               </div>
-              <div className="space-y-1.5">
-                {(card.fraudTimestamps ?? []).map((ts) => {
-                  const startSec = parseTsStart(ts);
-                  const endSec   = parseTsEnd(ts);
 
-                  // Get segments specifically in this time range
-                  let rangeSegs = getSegsInRange(startSec, endSec);
+              {/* Two-column grid */}
+              <div className="grid grid-cols-1 gap-3" style={{ gridTemplateColumns: '1fr 200px' }}>
 
-                  // Fallback: closest single segment if range yields nothing
-                  if (!rangeSegs.length && segs.length) {
-                    const closest = segs.reduce((b, s) =>
-                      Math.abs(s.start - startSec) < Math.abs(b.start - startSec) ? s : b, segs[0]);
-                    rangeSegs = [closest];
-                  }
+                {/* LEFT: Evidence quotes */}
+                <div className="space-y-1.5 min-w-0">
+                  {(card.fraudTimestamps ?? []).map((ts) => {
+                    const startSec = parseTsStart(ts);
+                    const endSec   = parseTsEnd(ts);
+                    let rangeSegs  = getSegsInRange(startSec, endSec);
+                    if (!rangeSegs.length && segs.length) {
+                      const closest = segs.reduce((b, s) =>
+                        Math.abs(s.start - startSec) < Math.abs(b.start - startSec) ? s : b, segs[0]);
+                      rangeSegs = [closest];
+                    }
+                    const quote  = rangeSegs.map(s => s.text).join(' ').trim();
+                    const isDup  = quote.length > 0 && shownTexts.has(quote);
+                    if (quote) shownTexts.add(quote);
 
-                  const quote = rangeSegs.map(s => s.text).join(' ').trim();
+                    return (
+                      <button
+                        key={ts}
+                        onClick={() => seekTo(ts)}
+                        className="w-full text-left rounded-lg border border-error/25 bg-error-container/8 hover:bg-error-container/15 hover:border-error/45 transition-all active:scale-[0.99] overflow-hidden group"
+                      >
+                        <div className="flex items-center gap-2 px-2.5 py-1 bg-error/8 border-b border-error/15">
+                          <span className="material-symbols-outlined text-[11px] text-error/70 group-hover:text-error transition-colors" style={{ fontVariationSettings: "'FILL' 1" }}>play_circle</span>
+                          <span className="text-[10px] font-code-sm text-error/80 font-semibold tabular-nums">{ts}</span>
+                          {isDup && <span className="text-[8px] text-error/35 ml-1">↻ повтор</span>}
+                        </div>
+                        {quote && !isDup ? (
+                          <p className="px-2.5 py-1.5 text-[11px] text-on-surface-variant/75 leading-snug font-code-sm">
+                            «{quote}»
+                          </p>
+                        ) : isDup ? (
+                          <p className="px-2.5 py-1.5 text-[10px] text-on-surface-variant/30 font-code-sm italic">
+                            Та же фраза, другое место в видео
+                          </p>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
 
-                  // Deduplicate: skip if exact same text shown above
-                  const isDup = quote && shownTexts.has(quote);
-                  if (quote) shownTexts.add(quote);
+                {/* RIGHT: Analysis panel */}
+                <div className="space-y-3 shrink-0">
 
-                  return (
-                    <button
-                      key={ts}
-                      onClick={() => seekTo(ts)}
-                      className="w-full text-left rounded-xl border border-error/30 bg-error-container/10 hover:bg-error-container/20 hover:border-error/50 transition-all active:scale-[0.99] overflow-hidden"
-                    >
-                      <div className="flex items-center gap-2 px-3 py-1.5 bg-error/10 border-b border-error/20">
-                        <span className="material-symbols-outlined text-xs text-error" style={{ fontVariationSettings: "'FILL' 1" }}>play_circle</span>
-                        <span className="text-[11px] font-code-sm text-error font-semibold tabular-nums">{ts}</span>
-                        {isDup && (
-                          <span className="text-[9px] text-error/40 font-code-sm">(повтор)</span>
-                        )}
-                        <span className="text-[9px] text-error/50 font-code-sm ml-auto">нажми чтобы посмотреть</span>
+                  {/* Stats */}
+                  <div className="rounded-lg border border-white/[0.08] bg-white/[0.03] p-3 space-y-2">
+                    <div className="text-[9px] text-on-surface-variant/40 font-label-caps tracking-widest mb-1">СТАТИСТИКА</div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] text-on-surface-variant/60 font-code-sm">Опасных моментов</span>
+                      <span className="text-sm font-semibold text-error">{(card.fraudTimestamps ?? []).length}</span>
+                    </div>
+                    {totalDangerSec > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] text-on-surface-variant/60 font-code-sm">Опасный контент</span>
+                        <span className="text-[11px] font-code-sm text-error/80">{fmtDuration(Math.round(totalDangerSec))}</span>
                       </div>
-                      {quote && !isDup && (
-                        <p className="px-3 py-2 text-[11px] text-error/75 leading-relaxed font-code-sm">
-                          «{quote}»
-                        </p>
-                      )}
-                      {isDup && (
-                        <p className="px-3 py-2 text-[10px] text-on-surface-variant/30 font-code-sm italic">
-                          Та же фраза повторяется в другой части видео
-                        </p>
-                      )}
-                    </button>
-                  );
-                })}
+                    )}
+                    {dangerPct > 0 && card.duration > 0 && (
+                      <div>
+                        <div className="flex justify-between mb-1">
+                          <span className="text-[10px] text-on-surface-variant/60 font-code-sm">Доля видео</span>
+                          <span className="text-[10px] text-error/80 font-code-sm">{dangerPct}%</span>
+                        </div>
+                        <div className="w-full bg-white/[0.06] rounded-full h-1">
+                          <div className="h-1 rounded-full bg-error/60" style={{ width: `${Math.min(100, dangerPct)}%` }} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Marker frequency chart */}
+                  {topMarkers.length > 0 && (
+                    <div className="rounded-lg border border-white/[0.08] bg-white/[0.03] p-3 space-y-1.5">
+                      <div className="text-[9px] text-on-surface-variant/40 font-label-caps tracking-widest mb-2">ПРИЗНАКИ</div>
+                      {topMarkers.map(([marker, count]) => (
+                        <div key={marker} className="space-y-0.5">
+                          <div className="flex justify-between items-center gap-1">
+                            <span className="text-[9px] text-on-surface-variant/65 font-code-sm leading-tight line-clamp-2 flex-1">{marker}</span>
+                            <span className="text-[9px] text-error/60 font-code-sm shrink-0 ml-1">×{count}</span>
+                          </div>
+                          <div className="w-full bg-white/[0.05] rounded-full h-0.5">
+                            <div
+                              className="h-0.5 rounded-full bg-error/50"
+                              style={{ width: `${(count / maxCount) * 100}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           );
         })()}
 
-        {/* Detected markers */}
-        {!isWorking && (card.detectedMarkers ?? []).length > 0 && (
+        {/* Detected markers (hidden when fraud panel is shown — already shown in right column) */}
+        {!isWorking && !hasFraud && (card.detectedMarkers ?? []).length > 0 && (
           <div className="flex flex-wrap gap-1">
             {(card.detectedMarkers ?? []).slice(0, 5).map((m) => (
               <span key={m} className="text-[10px] px-1.5 py-0.5 rounded border border-error/25 text-error/80 bg-error-container/10 font-code-sm">
