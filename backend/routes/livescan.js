@@ -321,25 +321,53 @@ async function runDeepScan({ keywords, limit }, emit, getAborted) {
             video.tags.map((t) => `#${t}`).join(' '),
           ].filter(Boolean).join('\n');
 
+          // ── Stage 1: Quick title/description check (no transcript) ───────────
+          // Saves time: don't transcribe obviously safe videos
+          const titleCls = await classifyContent({
+            platform: 'youtube',
+            username: video.uploader,
+            caption: video.title,
+            scrapedText: text,
+          });
+
+          const TITLE_SUSPICION_THRESHOLD = 35;
+          if (titleCls.riskScore < TITLE_SUSPICION_THRESHOLD) {
+            // Title looks clean → skip transcript, mark done immediately
+            console.log(`[deep] ${video.id} title safe (${titleCls.riskScore}) — skipping transcript`);
+            const safeResult = {
+              id: `yt-${video.id}`, url: video.url, platform: 'youtube',
+              username: video.uploader, title: video.title, thumbnail: video.thumbnail,
+              viewCount: video.viewCount, duration: video.duration, keyword,
+              transcript: '', segments: [], fraudTimestamps: [],
+              transcriptSource: 'skipped',
+              ...titleCls,
+            };
+            emit('result', safeResult);
+            saveScanResult(safeResult, 'deep').catch(() => {});
+            continue; // move to next video
+          }
+
+          // ── Stage 2: Transcript verification (title was suspicious) ──────────
+          emit('status', {
+            message: `⚠️ Подозрительное видео! Проверяю содержимое: "${video.title.slice(0, 40)}…"`,
+            transcribingId: `yt-${video.id}`,
+          });
+
           let segments = [];
           let transcript = '';
           let formattedTranscript = '';
           let transcriptSource = 'none';
 
-          // ── Fast path: YouTube auto-captions (seconds, no GPU needed) ──────────
+          // Fast: YouTube auto-captions
           const vid = ytVideoId(video.url);
           if (vid) {
             try {
-              emit('status', {
-                message: `📄 Субтитры YouTube: "${video.title.slice(0, 48)}…"`,
-                transcribingId: `yt-${video.id}`,
-              });
               const cap = await fetchYouTubeCaptions(vid);
               if (cap) {
-                transcript        = cap.text;
-                segments          = cap.segments;
+                transcript          = cap.text;
+                segments            = cap.segments;
                 formattedTranscript = formatSegments(segments);
-                transcriptSource  = 'captions';
+                transcriptSource    = 'captions';
                 console.log(`[deep] captions OK for ${video.id}: ${segments.length} segs`);
               }
             } catch (e) {
@@ -347,10 +375,10 @@ async function runDeepScan({ keywords, limit }, emit, getAborted) {
             }
           }
 
-          // ── Slow path: Whisper (only if captions unavailable) ────────────────
+          // Slow: Whisper fallback
           if (!transcript) {
             emit('status', {
-              message: `🎙 Whisper: "${video.title.slice(0, 48)}…"`,
+              message: `🎙 Whisper распознаёт речь: "${video.title.slice(0, 40)}…"`,
               transcribingId: `yt-${video.id}`,
             });
             try {
@@ -368,6 +396,7 @@ async function runDeepScan({ keywords, limit }, emit, getAborted) {
 
           console.log(`[deep] ${video.id} transcript=${transcriptSource} segs=${segments.length}`);
 
+          // ── Stage 3: Final verdict with full transcript ───────────────────────
           const cls = await classifyContent({
             platform: 'youtube',
             username: video.uploader,
@@ -389,6 +418,7 @@ async function runDeepScan({ keywords, limit }, emit, getAborted) {
             keyword,
             transcript: transcript.slice(0, 5000),
             segments,
+            transcriptSource,
             fraudTimestamps: Array.isArray(cls.fraudTimestamps) ? cls.fraudTimestamps : [],
             ...cls,
           };

@@ -68,6 +68,7 @@ interface DeepCard {
   segments?: Segment[];
   transcript?: string;
   requisites?: string[];
+  transcriptSource?: 'captions' | 'whisper' | 'skipped' | 'none';
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -248,6 +249,17 @@ function DeepScanCard({ card }: { card: DeepCard }) {
                 <span className="text-xs text-on-surface-variant/40 font-code-sm">{formatViews(card.viewCount)} просм.</span>
               )}
               <span className="text-[10px] font-code-sm text-on-surface-variant/30">ключ: {card.keyword}</span>
+              {card.transcriptSource && card.transcriptSource !== 'none' && card.state === 'done' && (
+                <span className={`text-[9px] font-code-sm px-1.5 py-0.5 rounded-full ${
+                  card.transcriptSource === 'captions' ? 'bg-primary/10 text-primary/60' :
+                  card.transcriptSource === 'whisper'  ? 'bg-yellow-500/10 text-yellow-400/60' :
+                  'bg-white/[0.05] text-on-surface-variant/30'
+                }`}>
+                  {card.transcriptSource === 'captions' ? '📄 субтитры' :
+                   card.transcriptSource === 'whisper'  ? '🎙 Whisper' :
+                   '📝 заголовок'}
+                </span>
+              )}
             </div>
           </div>
 
