@@ -614,7 +614,62 @@ export default function LiveScanner() {
     else { setDeepScanState('done'); setDeepStatus('Остановлено'); }
   };
 
-  useEffect(() => () => stopPolling(), []);
+  // Load persisted results on mount
+  useEffect(() => {
+    const load = async (type: 'live' | 'deep') => {
+      try {
+        const res  = await fetch(`${BACKEND}/api/livescan/results?type=${type}&limit=50`);
+        const data = await res.json();
+        if (!Array.isArray(data.results) || data.results.length === 0) return;
+
+        if (type === 'live') {
+          setLiveCards(data.results.map((r: any) => ({
+            id: r.id, url: r.url, platform: r.platform,
+            username: r.username, title: r.title, thumbnail: r.thumbnail,
+            viewCount: r.viewCount, keyword: r.keyword,
+            state: 'done' as const,
+            category: r.category, riskScore: r.riskScore, confidence: r.confidence,
+            detectedMarkers: r.detectedMarkers, explanation: r.explanation,
+            legalReference: r.legalReference,
+          })));
+        } else {
+          setDeepCards(data.results.map((r: any) => ({
+            id: r.id, url: r.url, platform: 'youtube' as const,
+            username: r.username, title: r.title, thumbnail: r.thumbnail,
+            viewCount: r.viewCount, duration: r.duration ?? 0, keyword: r.keyword,
+            state: 'done' as const,
+            category: r.category, riskScore: r.riskScore, confidence: r.confidence,
+            detectedMarkers: r.detectedMarkers, explanation: r.explanation,
+            legalReference: r.legalReference,
+            fraudTimestamps: r.fraudTimestamps ?? [],
+            segments: r.segments ?? [],
+            transcript: r.transcript ?? '',
+            requisites: r.requisites ?? [],
+          })));
+        }
+      } catch { /* DB unavailable — start empty */ }
+    };
+
+    load('live');
+    load('deep');
+    return () => stopPolling();
+  }, []);
+
+  // Clear results
+  const clearResults = async (type: 'live' | 'deep') => {
+    try {
+      await fetch(`${BACKEND}/api/livescan/results?type=${type}`, { method: 'DELETE' });
+    } catch { /* ignore */ }
+    if (type === 'live') {
+      setLiveCards([]);
+      setLiveStats({ scanned: 0, found: 0, threats: 0 });
+      setLiveStatus('');
+    } else {
+      setDeepCards([]);
+      setDeepScanned(0);
+      setDeepStatus('');
+    }
+  };
 
   const activeScanState = mode === 'live' ? liveScanState : deepScanState;
   const isScanning      = activeScanState === 'scanning';
@@ -830,6 +885,17 @@ export default function LiveScanner() {
                 <div className="mt-3 text-xs font-code-sm text-on-surface-variant/60 border-t border-white/5 pt-3 leading-relaxed">
                   {mode === 'live' ? liveStatus : deepStatus}
                 </div>
+              )}
+
+              {/* Clear button */}
+              {(mode === 'live' ? liveCards : deepCards).length > 0 && !isScanning && (
+                <button
+                  onClick={() => clearResults(mode)}
+                  className="mt-3 w-full flex items-center justify-center gap-1.5 text-xs text-on-surface-variant/50 hover:text-error transition-colors border border-white/[0.06] hover:border-error/30 rounded-xl py-2 font-code-sm"
+                >
+                  <span className="material-symbols-outlined text-sm" style={sym}>delete_sweep</span>
+                  Очистить результаты
+                </button>
               )}
             </div>
           </div>

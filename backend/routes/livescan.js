@@ -12,7 +12,7 @@
 import { Router } from 'express';
 import { searchYoutube, searchTiktok } from '../services/search.js';
 import { classifyContent } from '../services/classifier.js';
-import { savePost } from '../services/db.js';
+import { savePost, saveScanResult, getScanResults, clearScanResults } from '../services/db.js';
 import { transcribeFromUrl, formatSegments } from '../services/transcriber.js';
 
 // Transcribe only if initial risk score is above this threshold
@@ -95,6 +95,7 @@ async function runScan({ keywords, platforms, limit }, emit, getAborted) {
               transcript: transcript.slice(0, 1000), ...cls,
             };
             emit('result', ytResult);
+            saveScanResult(ytResult, 'live').catch(() => {});
             savePost({ ...ytResult, caption: video.title }).catch(() => {});
           } catch (clsErr) {
             emit('error', { id: `yt-${video.id}`, message: clsErr.message });
@@ -156,6 +157,7 @@ async function runScan({ keywords, platforms, limit }, emit, getAborted) {
               transcript: transcript.slice(0, 1000), ...cls,
             };
             emit('result', ttResult);
+            saveScanResult(ttResult, 'live').catch(() => {});
             savePost({ ...ttResult, caption: video.description || video.title }).catch(() => {});
           } catch (clsErr) {
             emit('error', { id: `tt-${video.id}`, message: clsErr.message });
@@ -338,6 +340,8 @@ async function runDeepScan({ keywords, limit }, emit, getAborted) {
 
           emit('result', result);
 
+          // Always save deep scan results (user wants persistence across reloads)
+          saveScanResult(result, 'deep').catch(() => {});
           if ((cls.riskScore ?? 0) >= 30) {
             savePost({ ...result, caption: video.title }).catch(() => {});
           }
@@ -371,3 +375,27 @@ livescanRouter.post('/deep/start', (req, res) => {
   res.json({ scanId });
 });
 // Deep scan reuses the existing /poll and /stop endpoints (generic scanId lookup)
+
+/* ─────────────────────────────────────────────
+   Persisted results — load on page mount / clear on demand
+   ───────────────────────────────────────────── */
+livescanRouter.get('/results', async (req, res) => {
+  try {
+    const type    = req.query.type === 'deep' ? 'deep' : 'live';
+    const limit   = Math.min(Number(req.query.limit ?? 50), 100);
+    const results = await getScanResults(type, limit);
+    res.json({ results });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+livescanRouter.delete('/results', async (req, res) => {
+  try {
+    const type = req.query.type === 'deep' ? 'deep' : 'live';
+    await clearScanResults(type);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
