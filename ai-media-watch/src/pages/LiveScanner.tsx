@@ -427,7 +427,7 @@ function DeepScanCard({ card }: { card: DeepCard }) {
                           {isDup && <span className="text-[8px] text-error/35 ml-1">↻ повтор</span>}
                         </div>
                         {quote && !isDup ? (
-                          <p className="px-2.5 py-1.5 text-[11px] text-on-surface-variant/75 leading-snug font-code-sm">
+                          <p className="px-2.5 py-1.5 text-[11px] text-white leading-snug font-code-sm">
                             «{quote}»
                           </p>
                         ) : isDup ? (
@@ -480,7 +480,7 @@ function DeepScanCard({ card }: { card: DeepCard }) {
                         >
                           <div className="flex justify-between items-start gap-1 mb-1">
                             <span
-                              className="text-[9px] text-on-surface-variant/65 font-code-sm leading-snug flex-1 overflow-hidden transition-all duration-300 ease-out"
+                              className="text-[9px] text-white/80 font-code-sm leading-snug flex-1 overflow-hidden transition-all duration-300 ease-out"
                               style={{
                                 display: '-webkit-box',
                                 WebkitBoxOrient: 'vertical',
@@ -599,7 +599,7 @@ function DeepScanCard({ card }: { card: DeepCard }) {
                             {isFraud && (
                               <span className="material-symbols-outlined text-xs text-error shrink-0 mt-0.5" style={sym}>warning</span>
                             )}
-                            <span className={`text-xs leading-relaxed ${isFraud ? 'text-error/80 font-medium' : 'text-on-surface-variant/65'}`}>
+                            <span className={`text-xs leading-relaxed ${isFraud ? 'text-error/90 font-medium' : 'text-white/75'}`}>
                               {seg.text}
                             </span>
                           </button>
