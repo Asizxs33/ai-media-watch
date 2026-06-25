@@ -294,9 +294,14 @@ async function captureLiveFrame(url) {
       streamUrl = streamUrl.trim().split('\n')[0];
       if (!streamUrl) return resolve(null);
 
-      const ff = spawn('ffmpeg', [
-        '-i', streamUrl, '-vframes', '1', '-q:v', '3', '-y', framePath,
-      ], { shell: false, windowsHide: true });
+      let ff;
+      try {
+        ff = spawn('ffmpeg', [
+          '-i', streamUrl, '-vframes', '1', '-q:v', '3', '-y', framePath,
+        ], { shell: false, windowsHide: true });
+      } catch { return resolve(null); }
+
+      ff.on('error', () => resolve(null)); // ffmpeg not installed → graceful fallback
 
       const timer = setTimeout(() => { killProcess(ff); resolve(null); }, 20_000);
       ff.on('close', async () => {
