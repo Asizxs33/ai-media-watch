@@ -284,50 +284,86 @@ function DeepScanCard({ card }: { card: DeepCard }) {
         </div>
 
         {/* Fraud timestamps — detailed evidence panel */}
-        {!isWorking && hasFraud && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-1.5 text-[11px] text-error/80 font-code-sm">
-              <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>gpp_bad</span>
-              Опасные моменты ({(card.fraudTimestamps ?? []).length}):
-            </div>
-            <div className="space-y-1.5">
-              {(card.fraudTimestamps ?? []).map((ts) => {
-                // Find matching segment — closest by start time
-                const sec = parseTimestamp(ts);
-                const segs = card.segments ?? [];
-                const match = segs.length
-                  ? segs.reduce((best, s) =>
-                      Math.abs(s.start - sec) < Math.abs(best.start - sec) ? s : best
-                    , segs[0])
-                  : null;
-                // Gather context: the matching segment + up to 2 surrounding ones
-                const idx = match ? segs.indexOf(match) : -1;
-                const context = idx >= 0
-                  ? segs.slice(Math.max(0, idx - 1), idx + 3).map(s => s.text).join(' ')
-                  : match?.text ?? '';
+        {!isWorking && hasFraud && (() => {
+          const segs = card.segments ?? [];
+          const shownTexts = new Set<string>();
 
-                return (
-                  <button
-                    key={ts}
-                    onClick={() => seekTo(ts)}
-                    className="w-full text-left rounded-xl border border-error/30 bg-error-container/10 hover:bg-error-container/20 hover:border-error/50 transition-all active:scale-[0.99] overflow-hidden"
-                  >
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-error/10 border-b border-error/20">
-                      <span className="material-symbols-outlined text-xs text-error" style={{ fontVariationSettings: "'FILL' 1" }}>play_circle</span>
-                      <span className="text-[11px] font-code-sm text-error font-semibold tabular-nums">{ts}</span>
-                      <span className="text-[9px] text-error/50 font-code-sm ml-auto">нажми чтобы посмотреть</span>
-                    </div>
-                    {context && (
-                      <p className="px-3 py-2 text-[11px] text-error/75 leading-relaxed font-code-sm">
-                        «{context.trim()}»
-                      </p>
-                    )}
-                  </button>
-                );
-              })}
+          // Parse "4:23" or "4:23-4:45" → start seconds
+          function parseTsStart(ts: string): number {
+            return parseTimestamp(ts.split('-')[0].trim());
+          }
+          function parseTsEnd(ts: string): number {
+            const parts = ts.split('-');
+            if (parts.length > 1) return parseTimestamp(parts[1].trim());
+            return parseTsStart(ts) + 20;
+          }
+
+          // Find segments that fall within [start-2s, end+2s] window
+          function getSegsInRange(start: number, end: number): Segment[] {
+            return segs.filter(s =>
+              (s.start >= start - 2 && s.start <= end + 2) ||
+              (s.end !== undefined && s.end >= start - 2 && s.end <= end + 2)
+            );
+          }
+
+          return (
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-[11px] text-error/80 font-code-sm">
+                <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>gpp_bad</span>
+                Опасные моменты ({(card.fraudTimestamps ?? []).length}):
+              </div>
+              <div className="space-y-1.5">
+                {(card.fraudTimestamps ?? []).map((ts) => {
+                  const startSec = parseTsStart(ts);
+                  const endSec   = parseTsEnd(ts);
+
+                  // Get segments specifically in this time range
+                  let rangeSegs = getSegsInRange(startSec, endSec);
+
+                  // Fallback: closest single segment if range yields nothing
+                  if (!rangeSegs.length && segs.length) {
+                    const closest = segs.reduce((b, s) =>
+                      Math.abs(s.start - startSec) < Math.abs(b.start - startSec) ? s : b, segs[0]);
+                    rangeSegs = [closest];
+                  }
+
+                  const quote = rangeSegs.map(s => s.text).join(' ').trim();
+
+                  // Deduplicate: skip if exact same text shown above
+                  const isDup = quote && shownTexts.has(quote);
+                  if (quote) shownTexts.add(quote);
+
+                  return (
+                    <button
+                      key={ts}
+                      onClick={() => seekTo(ts)}
+                      className="w-full text-left rounded-xl border border-error/30 bg-error-container/10 hover:bg-error-container/20 hover:border-error/50 transition-all active:scale-[0.99] overflow-hidden"
+                    >
+                      <div className="flex items-center gap-2 px-3 py-1.5 bg-error/10 border-b border-error/20">
+                        <span className="material-symbols-outlined text-xs text-error" style={{ fontVariationSettings: "'FILL' 1" }}>play_circle</span>
+                        <span className="text-[11px] font-code-sm text-error font-semibold tabular-nums">{ts}</span>
+                        {isDup && (
+                          <span className="text-[9px] text-error/40 font-code-sm">(повтор)</span>
+                        )}
+                        <span className="text-[9px] text-error/50 font-code-sm ml-auto">нажми чтобы посмотреть</span>
+                      </div>
+                      {quote && !isDup && (
+                        <p className="px-3 py-2 text-[11px] text-error/75 leading-relaxed font-code-sm">
+                          «{quote}»
+                        </p>
+                      )}
+                      {isDup && (
+                        <p className="px-3 py-2 text-[10px] text-on-surface-variant/30 font-code-sm italic">
+                          Та же фраза повторяется в другой части видео
+                        </p>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Detected markers */}
         {!isWorking && (card.detectedMarkers ?? []).length > 0 && (
