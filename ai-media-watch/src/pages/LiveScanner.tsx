@@ -651,7 +651,7 @@ export default function LiveScanner() {
         {/* ── Mode tabs ── */}
         <div className="flex gap-1 mb-5 p-1 bg-surface-container rounded-xl w-fit">
           {([
-            { id: 'live' as PageMode, icon: 'sensors',        label: 'ПРЯМЫЕ ЭФИРЫ' },
+            { id: 'live' as PageMode, icon: 'ondemand_video', label: 'ОБЫЧНЫЕ ВИДЕО' },
             { id: 'deep' as PageMode, icon: 'find_in_page',   label: 'ДЛИННЫЕ ВИДЕО' },
           ] as const).map((tab) => (
             <button
