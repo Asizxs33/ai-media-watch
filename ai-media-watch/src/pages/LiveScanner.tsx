@@ -271,25 +271,48 @@ function DeepScanCard({ card }: { card: DeepCard }) {
           ) : null}
         </div>
 
-        {/* Fraud timestamps — main feature */}
+        {/* Fraud timestamps — detailed evidence panel */}
         {!isWorking && hasFraud && (
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <div className="flex items-center gap-1.5 text-[11px] text-error/80 font-code-sm">
-              <span className="material-symbols-outlined text-sm" style={sym}>warning</span>
-              Мошенничество на таймлаймах:
+              <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>gpp_bad</span>
+              Опасные моменты ({(card.fraudTimestamps ?? []).length}):
             </div>
-            <div className="flex flex-wrap gap-1.5">
-              {(card.fraudTimestamps ?? []).map((ts) => (
-                <button
-                  key={ts}
-                  onClick={() => seekTo(ts)}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-error-container/25 border border-error/40 text-error text-xs font-code-sm hover:bg-error-container/45 hover:border-error/70 transition-all active:scale-95"
-                  style={{ minHeight: 32 }}
-                >
-                  <span className="material-symbols-outlined text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>play_circle</span>
-                  {ts}
-                </button>
-              ))}
+            <div className="space-y-1.5">
+              {(card.fraudTimestamps ?? []).map((ts) => {
+                // Find matching segment — closest by start time
+                const sec = parseTimestamp(ts);
+                const segs = card.segments ?? [];
+                const match = segs.length
+                  ? segs.reduce((best, s) =>
+                      Math.abs(s.start - sec) < Math.abs(best.start - sec) ? s : best
+                    , segs[0])
+                  : null;
+                // Gather context: the matching segment + up to 2 surrounding ones
+                const idx = match ? segs.indexOf(match) : -1;
+                const context = idx >= 0
+                  ? segs.slice(Math.max(0, idx - 1), idx + 3).map(s => s.text).join(' ')
+                  : match?.text ?? '';
+
+                return (
+                  <button
+                    key={ts}
+                    onClick={() => seekTo(ts)}
+                    className="w-full text-left rounded-xl border border-error/30 bg-error-container/10 hover:bg-error-container/20 hover:border-error/50 transition-all active:scale-[0.99] overflow-hidden"
+                  >
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-error/10 border-b border-error/20">
+                      <span className="material-symbols-outlined text-xs text-error" style={{ fontVariationSettings: "'FILL' 1" }}>play_circle</span>
+                      <span className="text-[11px] font-code-sm text-error font-semibold tabular-nums">{ts}</span>
+                      <span className="text-[9px] text-error/50 font-code-sm ml-auto">нажми чтобы посмотреть</span>
+                    </div>
+                    {context && (
+                      <p className="px-3 py-2 text-[11px] text-error/75 leading-relaxed font-code-sm">
+                        «{context.trim()}»
+                      </p>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
@@ -344,8 +367,13 @@ function DeepScanCard({ card }: { card: DeepCard }) {
                 chevron_right
               </motion.span>
               {hasSegments
-                ? `Транскрипция с тайм-лайном (${card.segments!.length} фрагм.)`
+                ? `Полный тайм-лайн (${card.segments!.length} фрагм.)`
                 : 'Транскрипция'}
+              {hasSegments && hasFraud && (
+                <span className="ml-1 text-[9px] px-1.5 py-0.5 rounded-full bg-error/15 text-error/70 font-code-sm">
+                  {(card.fraudTimestamps ?? []).length} опасных
+                </span>
+              )}
             </button>
 
             <AnimatePresence>

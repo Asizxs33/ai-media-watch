@@ -10,10 +10,39 @@
  * Типы событий: status | found | result | error | done
  */
 import { Router } from 'express';
+import { YoutubeTranscript } from 'youtube-transcript';
 import { searchYoutube, searchTiktok } from '../services/search.js';
 import { classifyContent } from '../services/classifier.js';
 import { savePost, saveScanResult, getScanResults, clearScanResults } from '../services/db.js';
 import { transcribeFromUrl, formatSegments } from '../services/transcriber.js';
+
+/**
+ * Convert MS offset/duration to our Segment format.
+ * Returns null if the video has no captions.
+ */
+async function fetchYouTubeCaptions(videoId) {
+  const raw = await YoutubeTranscript.fetchTranscript(videoId, { lang: 'ru' })
+    .catch(() => YoutubeTranscript.fetchTranscript(videoId)); // fallback: any language
+  if (!raw?.length) return null;
+
+  const segments = raw.map((item) => {
+    const start = item.offset / 1000;
+    const end   = (item.offset + item.duration) / 1000;
+    const m     = Math.floor(start / 60);
+    const s     = Math.floor(start % 60);
+    const ts    = `${m}:${String(s).padStart(2, '0')}`;
+    return { start, end, text: item.text.replace(/\n/g, ' '), ts };
+  });
+
+  const text = segments.map((s) => s.text).join(' ');
+  return { segments, text };
+}
+
+/** Extract YouTube video ID from URL */
+function ytVideoId(url = '') {
+  const m = url.match(/(?:v=|youtu\.be\/|embed\/)([A-Za-z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
 
 // Transcribe only if initial risk score is above this threshold
 const TRANSCRIBE_RISK_THRESHOLD = 60;
@@ -292,26 +321,52 @@ async function runDeepScan({ keywords, limit }, emit, getAborted) {
             video.tags.map((t) => `#${t}`).join(' '),
           ].filter(Boolean).join('\n');
 
-          // Signal "transcribing" phase to frontend
-          emit('status', {
-            message: `🎙 Whisper: "${video.title.slice(0, 48)}…"`,
-            transcribingId: `yt-${video.id}`,
-          });
-
           let segments = [];
           let transcript = '';
           let formattedTranscript = '';
+          let transcriptSource = 'none';
 
-          try {
-            const tr = await transcribeFromUrl(video.url);
-            if (tr?.text) {
-              transcript      = tr.text;
-              segments        = tr.segments ?? [];
-              formattedTranscript = formatSegments(segments);
+          // ── Fast path: YouTube auto-captions (seconds, no GPU needed) ──────────
+          const vid = ytVideoId(video.url);
+          if (vid) {
+            try {
+              emit('status', {
+                message: `📄 Субтитры YouTube: "${video.title.slice(0, 48)}…"`,
+                transcribingId: `yt-${video.id}`,
+              });
+              const cap = await fetchYouTubeCaptions(vid);
+              if (cap) {
+                transcript        = cap.text;
+                segments          = cap.segments;
+                formattedTranscript = formatSegments(segments);
+                transcriptSource  = 'captions';
+                console.log(`[deep] captions OK for ${video.id}: ${segments.length} segs`);
+              }
+            } catch (e) {
+              console.log(`[deep] captions unavailable for ${video.id}: ${e.message}`);
             }
-          } catch (e) {
-            console.warn(`[deep] transcribe failed for ${video.id}:`, e.message);
           }
+
+          // ── Slow path: Whisper (only if captions unavailable) ────────────────
+          if (!transcript) {
+            emit('status', {
+              message: `🎙 Whisper: "${video.title.slice(0, 48)}…"`,
+              transcribingId: `yt-${video.id}`,
+            });
+            try {
+              const tr = await transcribeFromUrl(video.url);
+              if (tr?.text) {
+                transcript          = tr.text;
+                segments            = tr.segments ?? [];
+                formattedTranscript = formatSegments(segments);
+                transcriptSource    = 'whisper';
+              }
+            } catch (e) {
+              console.warn(`[deep] whisper failed for ${video.id}:`, e.message);
+            }
+          }
+
+          console.log(`[deep] ${video.id} transcript=${transcriptSource} segs=${segments.length}`);
 
           const cls = await classifyContent({
             platform: 'youtube',
