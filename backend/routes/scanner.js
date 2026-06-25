@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { scannerState, triggerManualScan, pauseScanner, resumeScanner } from '../services/autonomousScanner.js';
+import { scannerState, triggerManualScan, pauseScanner, resumeScanner, setEnabledPlatforms } from '../services/autonomousScanner.js';
 
 export const scannerRouter = Router();
 
@@ -29,4 +29,16 @@ scannerRouter.post('/pause', (_req, res) => {
 scannerRouter.post('/resume', (_req, res) => {
   resumeScanner();
   res.json({ ok: true, paused: false });
+});
+
+/** POST /api/scanner/platforms — { platforms: ['youtube','tiktok','rutube'] } */
+scannerRouter.post('/platforms', (req, res) => {
+  try {
+    const { platforms } = req.body;
+    if (!Array.isArray(platforms)) return res.status(400).json({ ok: false, error: 'platforms must be an array' });
+    setEnabledPlatforms(platforms);
+    res.json({ ok: true, enabledPlatforms: scannerState.enabledPlatforms });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err.message });
+  }
 });

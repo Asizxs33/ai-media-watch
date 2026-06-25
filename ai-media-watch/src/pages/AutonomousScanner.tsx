@@ -18,6 +18,7 @@ interface ScannerStatus {
   lastError: string | null;
   recentFindings: Finding[];
   byPlatform: Record<string, number>;
+  enabledPlatforms: string[];
 }
 
 interface Finding {
@@ -187,24 +188,49 @@ export default function AutonomousScanner() {
           ))}
         </div>
 
-        {/* Platform breakdown */}
+        {/* Platform selection */}
         {status && (
           <div className="bg-surface-container border border-outline-variant/30 rounded-2xl p-4 mb-4">
-            <div className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-3">Сканирует платформы</div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Платформы для сканирования</div>
+              <div className="text-[10px] text-on-surface-variant">нажмите чтобы включить / выключить</div>
+            </div>
             <div className="grid grid-cols-3 gap-3">
               {[
                 { id: 'youtube', label: 'YouTube', color: '#ff5640', icon: 'smart_display' },
                 { id: 'tiktok',  label: 'TikTok',  color: '#ee1d51', icon: 'music_note'   },
                 { id: 'rutube',  label: 'Rutube',  color: '#ff6b35', icon: 'play_circle'  },
               ].map(p => {
-                const count = status.byPlatform?.[p.id] ?? 0;
+                const enabled = (status.enabledPlatforms ?? ['youtube', 'rutube']).includes(p.id);
+                const count   = status.byPlatform?.[p.id] ?? 0;
+                async function toggle() {
+                  const current = status!.enabledPlatforms ?? ['youtube', 'rutube'];
+                  const next = enabled
+                    ? current.filter(x => x !== p.id)
+                    : [...current, p.id];
+                  if (next.length === 0) return;
+                  await fetch(`${BACKEND}/api/scanner/platforms`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ platforms: next }),
+                  });
+                  await fetchStatus();
+                }
                 return (
-                  <div key={p.id} className="flex flex-col items-center gap-1.5 bg-surface-container-high rounded-2xl py-4 px-3">
-                    <span className="material-symbols-outlined text-[28px]" style={{ color: p.color }}>{p.icon}</span>
-                    <span className="text-xs font-semibold text-white">{p.label}</span>
+                  <button
+                    key={p.id}
+                    onClick={toggle}
+                    className={`flex flex-col items-center gap-1.5 rounded-2xl py-4 px-3 border-2 transition-all cursor-pointer ${
+                      enabled
+                        ? 'bg-surface-container-high border-transparent'
+                        : 'bg-surface-container/40 border-outline-variant/20 opacity-40 grayscale'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[28px]" style={{ color: enabled ? p.color : undefined }}>{p.icon}</span>
+                    <span className={`text-xs font-semibold ${enabled ? 'text-white' : 'text-on-surface-variant'}`}>{p.label}</span>
                     <span className={`text-xl font-bold ${count > 0 ? 'text-error' : 'text-on-surface-variant/50'}`}>{count}</span>
-                    <span className="text-[10px] text-on-surface-variant">угроз найдено</span>
-                  </div>
+                    <span className="text-[10px] text-on-surface-variant">{enabled ? 'угроз найдено' : 'отключено'}</span>
+                  </button>
                 );
               })}
             </div>

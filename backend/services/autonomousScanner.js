@@ -85,7 +85,9 @@ export const scannerState = {
   currentKeyword:   null,
   lastError:        null,
   recentFindings:   [],
-  // per-platform counters (only platforms with working search)
+  // which platforms to search (user-configurable)
+  enabledPlatforms: ['youtube', 'rutube'],
+  // per-platform counters
   byPlatform: {
     youtube: 0, tiktok: 0, rutube: 0,
   },
@@ -456,22 +458,26 @@ async function runCycle() {
     for (const keyword of FRAUD_KEYWORDS) {
       if (scannerState.paused) break;
       scannerState.currentKeyword = keyword;
-      console.log(`[scanner] Keyword: "${keyword}" — YouTube + Rutube`);
+      const ep = scannerState.enabledPlatforms;
+      console.log(`[scanner] Keyword: "${keyword}" — ${ep.join(' + ')}`);
 
-      // Search YouTube and Rutube in parallel
-      const [ytResult, ruResult] = await Promise.allSettled([
-        searchYouTube(keyword, MAX_PER_KEYWORD * 2),
-        searchRutube(keyword,  MAX_PER_KEYWORD * 2),
+      // Search enabled platforms in parallel
+      const searches = await Promise.allSettled([
+        ep.includes('youtube') ? searchYouTube(keyword, MAX_PER_KEYWORD * 2) : Promise.resolve([]),
+        ep.includes('rutube')  ? searchRutube(keyword,  MAX_PER_KEYWORD * 2) : Promise.resolve([]),
       ]);
 
-      const ytVideos = ytResult.status === 'fulfilled' ? ytResult.value.filter(v => v.url) : [];
-      const ruVideos = ruResult.status === 'fulfilled' ? ruResult.value.filter(v => v.url) : [];
+      const ytVideos = searches[0].status === 'fulfilled' ? searches[0].value.filter(v => v.url) : [];
+      const ruVideos = searches[1].status === 'fulfilled' ? searches[1].value.filter(v => v.url) : [];
 
-      if (ytVideos.length) console.log(`[scanner]   YouTube: ${ytVideos.length} results (${ytVideos.filter(v => v.isLive).length} live)`);
-      else if (ytResult.status === 'rejected') console.warn('[scanner]   YouTube search failed:', ytResult.reason?.message);
-
-      if (ruVideos.length) console.log(`[scanner]   Rutube:  ${ruVideos.length} results (${ruVideos.filter(v => v.isLive).length} live)`);
-      else if (ruResult.status === 'rejected') console.warn('[scanner]   Rutube search failed:', ruResult.reason?.message);
+      if (ep.includes('youtube')) {
+        if (ytVideos.length) console.log(`[scanner]   YouTube: ${ytVideos.length} results`);
+        else if (searches[0].status === 'rejected') console.warn('[scanner]   YouTube search failed:', searches[0].reason?.message);
+      }
+      if (ep.includes('rutube')) {
+        if (ruVideos.length) console.log(`[scanner]   Rutube:  ${ruVideos.length} results`);
+        else if (searches[1].status === 'rejected') console.warn('[scanner]   Rutube search failed:', searches[1].reason?.message);
+      }
 
       const allVideos = [...ytVideos, ...ruVideos];
 
@@ -503,6 +509,15 @@ async function runCycle() {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 let scanTimer = null;
+
+const VALID_PLATFORMS = ['youtube', 'tiktok', 'rutube'];
+
+export function setEnabledPlatforms(platforms) {
+  const valid = platforms.filter(p => VALID_PLATFORMS.includes(p));
+  if (valid.length === 0) throw new Error('At least one platform must be enabled');
+  scannerState.enabledPlatforms = valid;
+  console.log('[scanner] Platforms updated:', valid.join(', '));
+}
 
 export function pauseScanner() {
   scannerState.paused = true;
